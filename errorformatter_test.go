@@ -52,7 +52,7 @@ func makeDeepErrors() error {
 		"K3 2", "V3 space",
 		"K3;3", "V3;semicolumn",
 		"K3:3", "V3:column",
-		"K3\"5", "V3\"doublequote",
+		`K3"5`, `V3"doublequote`,
 		"K3%6", "V3%percent",
 	)
 	err = errors.WithMessage(err, "MESSAGE 4")

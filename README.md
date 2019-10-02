@@ -40,6 +40,12 @@ Related pull requests:
 
 * Format full values for fields <https://github.com/sirupsen/logrus/pull/505>
 
+## Syslog
+
+It's an RFC5424 logger, using Logrus and <https://godoc.org/github.com/juju/rfc/rfc5424>.
+
+*PARTLY IMPLEMENTED*
+
 ## TextLogger
 
 The output is a customized Logrus TextFormatter.
@@ -51,12 +57,6 @@ The output is a customized Logrus JSONFormatter.
 Related pull requests:
 
 * Allow disabling new line appending for json_formatter <https://github.com/sirupsen/logrus/pull/674>
-
-## Syslog
-
-It's an RFC5424 logger, based on Logrus and <https://godoc.org/github.com/juju/rfc/rfc5424>.
-
-*NOT IMPLEMENTED*
 
 ## HTTPProblem
 

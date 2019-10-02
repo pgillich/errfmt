@@ -86,10 +86,11 @@ func (f *AdvancedTextFormatter) Format(entry *log.Entry) ([]byte, error) {
 
 // SortingFuncDecorator builds a field sorter with given order (syslog)
 // fits to Logrus TextFormatter.SortingFunc
-// TODO: weight=-2 means drop the field (?)
+// TODO: weight=-100 means drop the field (?)
 func SortingFuncDecorator(fieldOrder map[string]int) func([]string) {
 	return func(keys []string) {
 		sorter := EntryFieldSorter{keys, fieldOrder}
+		sorter.dropDisabled()
 		sort.Sort(sorter)
 	}
 }
@@ -126,7 +127,19 @@ func (sorter EntryFieldSorter) weight(i int) int {
 	return -1
 }
 
-// AdvancedFieldOrder is the default field order (syslog)
+// dropDisabled is in-place drop
+func (sorter EntryFieldSorter) dropDisabled() {
+	n := 0
+	for _, item := range sorter.items {
+		if weight, ok := sorter.fieldOrder[item]; !ok || weight > -100 {
+			sorter.items[n] = item
+			n++
+		}
+	}
+	sorter.items = sorter.items[:n]
+}
+
+// AdvancedFieldOrder is the default field order (similar to syslog)
 func AdvancedFieldOrder() map[string]int {
 	return map[string]int{
 		log.FieldKeyLevel:       100, // first

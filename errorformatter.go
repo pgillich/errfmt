@@ -4,11 +4,14 @@
 package errorformatter
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"runtime"
 	"strings"
+	"time"
 
 	"emperror.dev/errors"
 	"emperror.dev/errors/utils/keyval"
@@ -213,4 +216,23 @@ func IsNumeric(k reflect.Kind) bool {
 	}
 
 	return false
+}
+
+// JSONMarshal marshals with escapeHTML flag. Removes last endline
+func JSONMarshal(t interface{}, escapeHTML bool) ([]byte, error) {
+	buffer := &bytes.Buffer{}
+	encoder := json.NewEncoder(buffer)
+	encoder.SetEscapeHTML(escapeHTML)
+	err := encoder.Encode(t)
+	jsonBytes := buffer.Bytes()
+	if len(jsonBytes) > 0 && jsonBytes[len(jsonBytes)-1] == '\n' {
+		jsonBytes = jsonBytes[0 : len(jsonBytes)-1]
+	}
+	return jsonBytes, err
+}
+
+// nolint:golint
+func SetEntryTimestamp(entry *log.Entry, ts time.Time) *log.Entry {
+	entry.Time = ts
+	return entry
 }
