@@ -35,11 +35,12 @@ func TestLogrus_JSONLogger(t *testing.T) {
 	formatter.PrettyPrint = true
 
 	err := makeDeepErrors()
+	loggerMock.WithErrorDetailsCallStack(err).Log(log.ErrorLevel, err)
 
-	loggerMock.ErrorWithCallStack(log.ErrorLevel, err)
-	fmt.Printf("###\n%s\n###\n", loggerMock.outBuf.String())
-	// nolint:lll
-	assert.Equal(t, `{
+	if debugTest {
+		fmt.Printf("###\n%s\n###\n", loggerMock.outBuf.String())
+		// nolint:lll
+		assert.Equal(t, `{
   "K0_1": "V0_1",
   "K0_2": "V0_2",
   "K1_1": "V1_1",
@@ -68,6 +69,7 @@ func TestLogrus_JSONLogger(t *testing.T) {
   "time": "`+StaticTimeFormat+`"
 }
 `, replaceCallLine(loggerMock.outBuf.String()))
+	}
 }
 
 func TestLogrus_JSONLogger_CallStackInFields(t *testing.T) {
@@ -79,11 +81,12 @@ func TestLogrus_JSONLogger_CallStackInFields(t *testing.T) {
 	formatter.PrettyPrint = true
 
 	err := makeDeepErrors()
+	loggerMock.WithErrorDetailsCallStack(err).Log(log.ErrorLevel, err)
 
-	loggerMock.ErrorWithCallStack(log.ErrorLevel, err)
-	fmt.Printf("###\n%s\n###\n", loggerMock.outBuf.String())
-	// nolint:lll
-	assert.Equal(t, `{
+	if debugTest {
+		fmt.Printf("###\n%s\n###\n", loggerMock.outBuf.String())
+		// nolint:lll
+		assert.Equal(t, `{
   "K0_1": "V0_1",
   "K0_2": "V0_2",
   "K1_1": "V1_1",
@@ -117,4 +120,5 @@ func TestLogrus_JSONLogger_CallStackInFields(t *testing.T) {
   "time": "`+StaticTimeFormat+`"
 }
 `, replaceCallLine(loggerMock.outBuf.String()))
+	}
 }

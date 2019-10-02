@@ -12,7 +12,6 @@ import (
 /*
 NewTextLogger builds a customized Logrus JSON logger+formatter
 	Features:
-	* ParentCallerHook
 	* CallStackSkipLast
 	* CallStackNewLines and CallStackInFields
 	* ModuleCallerPrettyfier
@@ -20,22 +19,15 @@ NewTextLogger builds a customized Logrus JSON logger+formatter
 */
 func NewTextLogger(level log.Level, callStackSkipLast int, callStackNewLines bool, printStructFieldNames bool,
 ) *AdvancedLogger {
-	textFormatter := NewAdvancedTextFormatter(printStructFieldNames)
-	logger := AdvancedLogger{
+	return &AdvancedLogger{
 		Logger: &log.Logger{
-			Formatter:    textFormatter,
-			Hooks:        make(log.LevelHooks),
+			Formatter:    NewAdvancedTextFormatter(printStructFieldNames),
 			Level:        level,
 			ReportCaller: true,
 		},
 		CallStackSkipLast: callStackSkipLast,
 		CallStackNewLines: callStackNewLines,
 	}
-
-	parentCallerHook := ParentCallerHook{1}
-	logger.AddHook(&parentCallerHook)
-
-	return &logger
 }
 
 /*
@@ -140,9 +132,10 @@ func AdvancedFieldOrder() map[string]int {
 		log.FieldKeyLevel:       100, // first
 		log.FieldKeyTime:        90,
 		log.FieldKeyFunc:        80,
-		log.FieldKeyMsg:         70,
-		log.FieldKeyLogrusError: 60,
-		log.FieldKeyFile:        50,
+		log.ErrorKey:            70,
+		log.FieldKeyMsg:         60,
+		log.FieldKeyLogrusError: 50,
+		log.FieldKeyFile:        40,
 		KeyCallStack:            -2, // after normal fields (-1)
 	}
 }

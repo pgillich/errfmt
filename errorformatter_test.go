@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"emperror.dev/errors"
-	//	log "github.com/sirupsen/logrus"
 )
 
 const (

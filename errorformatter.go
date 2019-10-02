@@ -24,6 +24,7 @@ const (
 
 var (
 	skipPackageNameForCaller = make(map[string]struct{}, 1) // nolint:gochecknoglobals
+	debugTest                = true                         // nolint:gochecknoglobals
 )
 
 // AddSkipPackageFromStackTrace adds package name for trimming
@@ -50,23 +51,23 @@ type ContextLogFieldKey string
 // AdvancedLogger is a decorator struct to Logrus Logger
 type AdvancedLogger struct {
 	*log.Logger
-	/* CallStackSkipLast at ErrorWithCallStack()
+
+	/* CallStackSkipLast at WithErrorDetailsCallStack()
 	If 0, call stack lines are NOT printed (=disabled)
 	If >0, call stack lines are printed, skipping the last lines
 		so, the main() will never be printed.
 	*/
 	CallStackSkipLast int
-	/* CallStackNewLines at ErrorWithCallStack()
+
+	/* CallStackNewLines at WithErrorDetailsCallStack()
 	true: call stack is printed in new lines
 	false: call stack is appended to Details with field "callstack"
 	*/
 	CallStackNewLines bool
-	//PrintStructFieldNames bool
 }
 
-// ErrorWithCallStack prints out call stack, too
-func (logger *AdvancedLogger) ErrorWithCallStack(level log.Level, err error) {
-	var entry *log.Entry
+// WithErrorDetailsCallStack prints out errors Details as fields and call stack, too
+func (logger *AdvancedLogger) WithErrorDetailsCallStack(err error) *log.Entry {
 	fields := keyval.ToMap(errors.GetDetails(err))
 
 	var stackTracer StackTracer
@@ -78,16 +79,18 @@ func (logger *AdvancedLogger) ErrorWithCallStack(level log.Level, err error) {
 				ctxCallStack := context.WithValue(context.Background(),
 					ContextLogFieldKey(KeyCallStack), callStackLines,
 				)
-				entry = logger.WithContext(ctxCallStack).WithFields(log.Fields(fields))
-				entry.Log(level, err)
-				return
+				return logger.WithContext(ctxCallStack).WithFields(log.Fields(fields))
 			}
 			fields[KeyCallStack] = callStackLines
 		}
 	}
 
-	entry = logger.WithFields(log.Fields(fields))
-	entry.Log(level, err)
+	return logger.WithFields(log.Fields(fields))
+}
+
+// WithErrorDetails prints out errors Details as fields
+func (logger *AdvancedLogger) WithErrorDetails(level log.Level, err error) *log.Entry {
+	return logger.WithFields(log.Fields(keyval.ToMap(errors.GetDetails(err))))
 }
 
 /*
@@ -119,48 +122,6 @@ func TrimModuleNamePrefix(functionName string) string {
 	}
 
 	return functionName
-}
-
-/*
-ParentCallerHook is a Logrus Hook implementation
-	Patches the "func" and "file" fields to the parent
-	Similar pull request: https://github.com/sirupsen/logrus/pull/973
-	Unfortunately, sirupsen/logrus/Entry.log() always overwrites Entry.Caller,
-		instead of leaving the patched value, if it's not nil
-*/
-type ParentCallerHook struct {
-	ParentCount int
-}
-
-// Levels returns all levels
-func (*ParentCallerHook) Levels() []log.Level {
-	return log.AllLevels
-}
-
-// Fire replaces Entry.Caller to the parent
-func (h *ParentCallerHook) Fire(entry *log.Entry) error {
-	if h.ParentCount <= 0 || entry.Caller == nil {
-		return nil
-	}
-
-	pcs := make([]uintptr, MaximumCallerDepth)
-	depth := runtime.Callers(2, pcs)
-	frames := runtime.CallersFrames(pcs[:depth])
-
-	var parentCount = MaximumCallerDepth - 1
-	var f runtime.Frame
-	var again bool
-	for f, again = frames.Next(); again && parentCount > 0; f, again = frames.Next() {
-		if f == *entry.Caller {
-			parentCount = h.ParentCount
-		}
-		parentCount--
-	}
-	if again { // for loop exited by parentCount == 0
-		entry.Caller = &f // nolint:scopelint
-	}
-
-	return nil
 }
 
 // buildCallStackLines builds a compact list of call stack lines

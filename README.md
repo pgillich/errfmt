@@ -8,20 +8,9 @@ The objective of this library is printing readable and parseable log messages, u
 
 ## Features
 
-### ParentCallerHook
+### WithErrorDetailsCallStack
 
-Patches the "func" and "file" fields to the parent.
-
-Unfortunately, sirupsen/logrus/Entry.log() always overwrites Entry.Caller, instead of leaving the patched value, if it's not nil. The workaround is registering hooks for each log level, in order to patch the fields before calling Format()
-
-Similar pull requests:
-
-* add caller skip <https://github.com/sirupsen/logrus/pull/973>
-* Pragma Caller hook <https://github.com/sirupsen/logrus/pull/1002>
-
-### ErrorWithCallStack
-
-If CallStackSkipLast > 0, a shorten call stack is printed. Below options don't have effect, if CallStackSkipLast = false.
+If CallStackSkipLast > 0, a shorten call stack is printed. Below options don't have effect, if CallStackSkipLast = 0.
 
 #### CallStackSkipLast
 
@@ -74,3 +63,11 @@ It's an RFC5424 logger, based on Logrus and <https://godoc.org/github.com/juju/r
 It's a RFC7807 response builder, based on Logrus and github.com/moogar0880/problems
 
 *NOT IMPLEMENTED*
+
+## Logrus pull requests
+
+Unfortunately, sirupsen/logrus/Entry.log() always overwrites Entry.Caller, instead of leaving the patched value, if it's not nil.
+
+Related pull requests:
+
+* add caller skip <https://github.com/sirupsen/logrus/pull/973>

@@ -12,29 +12,21 @@ import (
 /*
 NewJSONLogger builds a customized Logrus JSON logger+formatter
 	Features:
-	* ParentCallerHook
 	* CallStackSkipLast
 	* CallStackNewLines (only CallStackInFields)
 	* ModuleCallerPrettyfier
 */
 func NewJSONLogger(level log.Level, callStackSkipLast int, callStackNewLines bool,
 ) *AdvancedLogger {
-	jsonFormatter := NewAdvancedJSONFormatter()
-	logger := AdvancedLogger{
+	return &AdvancedLogger{
 		Logger: &log.Logger{
-			Formatter:    jsonFormatter,
-			Hooks:        make(log.LevelHooks),
+			Formatter:    NewAdvancedJSONFormatter(),
 			Level:        level,
 			ReportCaller: true,
 		},
 		CallStackSkipLast: callStackSkipLast,
 		CallStackNewLines: callStackNewLines,
 	}
-
-	parentCallerHook := ParentCallerHook{1}
-	logger.AddHook(&parentCallerHook)
-
-	return &logger
 }
 
 /*
