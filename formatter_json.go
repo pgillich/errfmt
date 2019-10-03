@@ -1,11 +1,6 @@
 package errorformatter
 
 import (
-	/*
-		"fmt"
-		"reflect"
-		"strings"
-	*/
 	log "github.com/sirupsen/logrus"
 )
 

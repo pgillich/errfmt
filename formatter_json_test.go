@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -29,13 +30,14 @@ func newJSONLoggerMock(callStackSkipLast int, callStackNewLines bool) *LoggerMoc
 func TestLogrus_JSONLogger(t *testing.T) {
 	funcName := FunctionNameShort()
 	loggerMock := newJSONLoggerMock(2, true)
+	ts := time.Now()
+	tsRFC3339 := ts.Format(time.RFC3339)
 	formatter, ok := loggerMock.Logger.Formatter.(*AdvancedJSONFormatter)
 	assert.True(t, ok, "AdvancedJSONFormatter")
-	formatter.TimestampFormat = StaticTimeFormat
 	formatter.PrettyPrint = true
 
 	err := makeDeepErrors()
-	loggerMock.WithErrorDetailsCallStack(err).Log(log.ErrorLevel, err)
+	SetEntryTimestamp(loggerMock.WithErrorDetailsCallStack(err), ts).Log(log.ErrorLevel, err)
 
 	if debugTest {
 		fmt.Printf("###\n%s\n###\n", loggerMock.outBuf.String())
@@ -66,7 +68,7 @@ func TestLogrus_JSONLogger(t *testing.T) {
   "func": "`+funcName+`",
   "level": "error",
   "msg": "MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax",
-  "time": "`+StaticTimeFormat+`"
+  "time": "`+tsRFC3339+`"
 }
 `, replaceCallLine(loggerMock.outBuf.String()))
 	}
@@ -75,13 +77,14 @@ func TestLogrus_JSONLogger(t *testing.T) {
 func TestLogrus_JSONLogger_CallStackInFields(t *testing.T) {
 	funcName := FunctionNameShort()
 	loggerMock := newJSONLoggerMock(2, false)
+	ts := time.Now()
+	tsRFC3339 := ts.Format(time.RFC3339)
 	formatter, ok := loggerMock.Logger.Formatter.(*AdvancedJSONFormatter)
 	assert.True(t, ok, "AdvancedJSONFormatter")
-	formatter.TimestampFormat = StaticTimeFormat
 	formatter.PrettyPrint = true
 
 	err := makeDeepErrors()
-	loggerMock.WithErrorDetailsCallStack(err).Log(log.ErrorLevel, err)
+	SetEntryTimestamp(loggerMock.WithErrorDetailsCallStack(err), ts).Log(log.ErrorLevel, err)
 
 	if debugTest {
 		fmt.Printf("###\n%s\n###\n", loggerMock.outBuf.String())
@@ -117,7 +120,7 @@ func TestLogrus_JSONLogger_CallStackInFields(t *testing.T) {
   "func": "`+funcName+`",
   "level": "error",
   "msg": "MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax",
-  "time": "`+StaticTimeFormat+`"
+  "time": "`+tsRFC3339+`"
 }
 `, replaceCallLine(loggerMock.outBuf.String()))
 	}

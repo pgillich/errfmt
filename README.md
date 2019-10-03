@@ -44,6 +44,12 @@ Related pull requests:
 
 If the field order weight is set to -100, the field will be skipped by TextLogger. (not tested)
 
+### TrimJSONDquote
+
+If it's true, the leading and trailing '"' of JSON-formatted values are removed. Before unmarshalling, the trimmed '"' must be recovered.
+
+Useful for making the JSON-formatted strings by more readable.
+
 ## Syslog
 
 It's an RFC5424 logger, using Logrus and <https://godoc.org/github.com/juju/rfc/rfc5424>.

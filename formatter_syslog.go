@@ -23,7 +23,8 @@ func NewSyslogLogger(level log.Level, callStackSkipLast int, callStackNewLines b
 ) *AdvancedLogger {
 	return &AdvancedLogger{
 		Logger: &log.Logger{
-			Formatter:    NewAdvancedSyslogFormatter(facility, hostname, appName, procID, msgID),
+			Formatter: NewAdvancedSyslogFormatter(
+				facility, hostname, appName, procID, msgID, true),
 			Level:        level,
 			ReportCaller: true,
 		},
@@ -34,19 +35,19 @@ func NewSyslogLogger(level log.Level, callStackSkipLast int, callStackNewLines b
 
 // nolint:golint
 type AdvancedSyslogFormatter struct {
-	//log.TextFormatter
 	LevelToSeverity map[log.Level]rfc5424.Severity
 	Facility        rfc5424.Facility
 	Hostname        rfc5424.Hostname
 	AppName         rfc5424.AppName
 	ProcID          rfc5424.ProcID
 	MsgID           rfc5424.MsgID
+	TrimJSONDquote  bool
 }
 
 // nolint:golint
 func NewAdvancedSyslogFormatter(
 	facility rfc5424.Facility, hostname rfc5424.Hostname, appName string,
-	procID string, msgID string,
+	procID string, msgID string, trimJSONDquote bool,
 ) *AdvancedSyslogFormatter {
 	advancedSyslogFormatter := AdvancedSyslogFormatter{
 		LevelToSeverity: DefaultLevelToSeverity(),
@@ -55,6 +56,7 @@ func NewAdvancedSyslogFormatter(
 		AppName:         rfc5424.AppName(appName),
 		ProcID:          rfc5424.ProcID(procID),
 		MsgID:           rfc5424.MsgID(msgID),
+		TrimJSONDquote:  trimJSONDquote,
 	}
 
 	return &advancedSyslogFormatter
@@ -88,10 +90,10 @@ func (f *AdvancedSyslogFormatter) Format(entry *log.Entry) ([]byte, error) { //n
 	var funcVal, fileVal string
 	if entry.HasCaller() {
 		funcVal, fileVal = ModuleCallerPrettyfier(entry.Caller)
-		detailList.Append(log.FieldKeyFunc, funcVal)
+		detailList.Append(log.FieldKeyFunc, funcVal, f.TrimJSONDquote)
 	}
 	if errorVal, ok := data[log.ErrorKey]; ok {
-		detailList.Append(log.ErrorKey, errorVal)
+		detailList.Append(log.ErrorKey, errorVal, f.TrimJSONDquote)
 		delete(data, log.ErrorKey)
 	}
 
@@ -102,11 +104,11 @@ func (f *AdvancedSyslogFormatter) Format(entry *log.Entry) ([]byte, error) { //n
 	sort.Strings(detailKeys)
 
 	for _, key := range detailKeys {
-		detailList.Append(key, entry.Data[key])
+		detailList.Append(key, entry.Data[key], f.TrimJSONDquote)
 	}
 
 	if len(fileVal) > 0 {
-		detailList.Append(log.FieldKeyFile, fileVal)
+		detailList.Append(log.FieldKeyFile, fileVal, f.TrimJSONDquote)
 	}
 
 	structuredData := rfc5424.StructuredData{
@@ -221,7 +223,7 @@ func NewJSONDataElement(id string) *JSONDataElement {
 }
 
 // nolint:golint
-func (de *JSONDataElement) Append(name string, value interface{}) {
+func (de *JSONDataElement) Append(name string, value interface{}, trimJSONDquote bool) {
 	bytes, err := JSONMarshal(value, false)
 	var jsonValue string
 	if err != nil {
@@ -230,16 +232,12 @@ func (de *JSONDataElement) Append(name string, value interface{}) {
 		jsonValue = string(bytes)
 	}
 
-	if name == "K5_bool" {
-		name = "K5_bool"
+	if trimJSONDquote && strings.HasPrefix(jsonValue, `"`) && strings.HasSuffix(jsonValue, `"`) {
+		jsonValue = jsonValue[1 : len(jsonValue)-1]
 	}
-	/*
-		if strings.HasPrefix(jsonValue, `"`) && strings.HasSuffix(jsonValue, `"`) {
-			jsonValue = jsonValue[1 : len(jsonValue)-1]
-		}
-	*/
+
 	sdp := rfc5424.StructuredDataParam{
-		Name:  rfc5424.StructuredDataName(EncodeStructuredDataName(name)),
+		Name:  rfc5424.StructuredDataName(FixStructuredDataName(name)),
 		Value: rfc5424.StructuredDataParamValue(jsonValue),
 	}
 	de.params = append(de.params, sdp)
@@ -259,7 +257,7 @@ func (de *JSONDataElement) Params() []rfc5424.StructuredDataParam {
 func (de *JSONDataElement) Validate() error { return nil }
 
 // nolint:golint
-func EncodeStructuredDataName(name string) string {
+func FixStructuredDataName(name string) string {
 	str := strings.Builder{}
 
 	for _, b := range []byte(name) {
@@ -273,6 +271,7 @@ func EncodeStructuredDataName(name string) string {
 	return str.String()
 }
 
+// prefixFieldClashes is a copy of Logrus feature
 func prefixFieldClashes(data log.Fields, key string) {
 	if v, ok := data[key]; ok {
 		data["fields."+key] = v
