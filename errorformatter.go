@@ -23,6 +23,8 @@ const (
 	KeyCallStack = "callstack"
 	// MaximumCallerDepth is the max. call stack deep
 	MaximumCallerDepth = 50
+	// DisabledFieldWeight is the value for dropping the field during ordering
+	DisabledFieldWeight = -100
 )
 
 var (

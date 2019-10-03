@@ -40,6 +40,10 @@ Related pull requests:
 
 * Format full values for fields <https://github.com/sirupsen/logrus/pull/505>
 
+### DisabledFieldWeight
+
+If the field order weight is set to -100, the field will be skipped by TextLogger. (not tested)
+
 ## Syslog
 
 It's an RFC5424 logger, using Logrus and <https://godoc.org/github.com/juju/rfc/rfc5424>.
