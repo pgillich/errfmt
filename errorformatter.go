@@ -220,10 +220,17 @@ func IsNumeric(k reflect.Kind) bool {
 	return false
 }
 
-// JSONMarshal marshals with escapeHTML flag. Removes last endline
-func JSONMarshal(t interface{}, escapeHTML bool) ([]byte, error) {
+/*
+JSONMarshal marshals with escapeHTML flag.
+	if indent is "", indenting is disabled.
+	Removes last endline.
+*/
+func JSONMarshal(t interface{}, indent string, escapeHTML bool) ([]byte, error) {
 	buffer := &bytes.Buffer{}
 	encoder := json.NewEncoder(buffer)
+	if len(indent) > 0 {
+		encoder.SetIndent("", indent)
+	}
 	encoder.SetEscapeHTML(escapeHTML)
 	err := encoder.Encode(t)
 	jsonBytes := buffer.Bytes()
@@ -238,3 +245,48 @@ func SetEntryTimestamp(entry *log.Entry, ts time.Time) *log.Entry {
 	entry.Time = ts
 	return entry
 }
+
+// nolint:golint
+func DigErrorsString(err error) string {
+	if msg := GetFieldString(err, "msg"); msg != nil {
+		return *msg
+	}
+
+	return err.Error()
+}
+
+// nolint:golint
+func GetFieldString(input interface{}, keyName string) *string {
+	if input == nil {
+		return nil
+	}
+	var inputVal reflect.Value
+	if inputVal = reflect.ValueOf(input); !inputVal.IsValid() {
+		return nil
+	}
+
+	if inputVal.Kind() == reflect.Ptr {
+		if inputVal.IsNil() {
+			return nil
+		}
+		inputVal = reflect.Indirect(inputVal)
+		if !inputVal.IsValid() {
+			return nil
+		}
+	}
+	if inputVal.Kind() == reflect.Struct {
+		typ := inputVal.Type()
+		for i := 0; i < typ.NumField(); i++ {
+			if typ.Field(i).Name == keyName {
+				if field := inputVal.Field(i); field.IsValid() {
+					fieldValue := fmt.Sprintf("%+v", field)
+					return &fieldValue
+				}
+				break
+			}
+		}
+	}
+
+	return nil
+}
+

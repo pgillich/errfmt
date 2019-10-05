@@ -224,7 +224,7 @@ func NewJSONDataElement(id string) *JSONDataElement {
 
 // nolint:golint
 func (de *JSONDataElement) Append(name string, value interface{}, trimJSONDquote bool) {
-	bytes, err := JSONMarshal(value, false)
+	bytes, err := JSONMarshal(value, "", false)
 	var jsonValue string
 	if err != nil {
 		jsonValue = err.Error()

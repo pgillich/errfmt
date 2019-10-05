@@ -74,10 +74,19 @@ It's a RFC7807 response builder, based on Logrus and github.com/moogar0880/probl
 
 *NOT IMPLEMENTED*
 
-## Logrus pull requests
+### TODO
+
+## Entry.Caller
 
 Unfortunately, sirupsen/logrus/Entry.log() always overwrites Entry.Caller, instead of leaving the patched value, if it's not nil.
 
 Related pull requests:
 
 * add caller skip <https://github.com/sirupsen/logrus/pull/973>
+
+## Fluentd
+
+<https://github.com/evalphobia/logrus_fluent>
+
+Error, struct and map conversions:
+<https://github.com/evalphobia/logrus_fluent/pull/32/files>
