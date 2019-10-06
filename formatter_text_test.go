@@ -93,6 +93,7 @@ func TestLogrus_WithError_ExtractDetails_CallStackOnConsole_PrintStructFieldName
 	`+funcName+`() formatter_text_test.go:0
 `, replaceCallLine(loggerMock.outBuf.String()))
 }
+
 func TestErrors_WithError_ExtractDetails_CallStackInFields(t *testing.T) {
 	funcName := FunctionNameShort()
 	loggerMock := newTextLoggerMock(

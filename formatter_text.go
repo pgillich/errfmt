@@ -56,13 +56,19 @@ func NewAdvancedTextFormatter(flags int, callStackSkipLast int, printStructField
 // Format implements logrus.Formatter interface
 // nolint:gocyclo,funlen
 func (f *AdvancedTextFormatter) Format(entry *log.Entry) ([]byte, error) {
-	f.FillDetailsToFields(entry)
-	callStackLines := f.FillCallStack(entry)
-	f.RenderFieldValues(entry)
+	entry.Data = f.MergeDetailsToFields(entry)
+	callStackLines := f.GetCallStack(entry)
+	if (f.Flags & FlagCallStackInFields) > 0 {
+		entry.Data[KeyCallStack] = callStackLines
+	}
+
+	f.RenderFieldValues(entry.Data)
 
 	textPart, err := f.TextFormatter.Format(entry)
 
-	textPart = f.AppendCallStack(textPart, callStackLines)
+	if (f.Flags & FlagCallStackOnConsole) > 0 {
+		textPart = f.AppendCallStack(textPart, callStackLines)
+	}
 
 	return textPart, err
 }

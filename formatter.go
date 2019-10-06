@@ -30,35 +30,60 @@ func (f *AdvancedFormatter) GetError(entry *log.Entry) error {
 	return nil
 }
 
-// FillDetailsToFields extracts Details from error, if enabled
-func (f *AdvancedFormatter) FillDetailsToFields(entry *log.Entry) {
+// PrepareFields copies entry.Data to new and prepares for formatting
+func (f *AdvancedFormatter) PrepareFields(entry *log.Entry) log.Fields {
+	data := f.MergeDetailsToFields(entry)
+
+	for _, key := range []string{
+		log.FieldKeyLevel, log.FieldKeyTime, log.FieldKeyFunc,
+		log.FieldKeyMsg, log.FieldKeyFile, KeyCallStack,
+	} {
+		prefixFieldClashes(data, key)
+	}
+
+	callStackLines := f.GetCallStack(entry)
+	if (f.Flags & FlagCallStackInFields) > 0 {
+		data[KeyCallStack] = callStackLines
+	}
+
+	f.RenderFieldValues(data)
+
+	if entry.HasCaller() {
+		funcVal, fileVal := ModuleCallerPrettyfier(entry.Caller)
+		data[log.FieldKeyFunc] = funcVal
+		data[log.FieldKeyFile] = fileVal
+	}
+	data[log.FieldKeyLevel] = entry.Level
+
+	return data
+}
+
+// MergeDetailsToFields merges Details from error to, if enabled
+// Always returns a new instance (copy+merge)
+func (f *AdvancedFormatter) MergeDetailsToFields(entry *log.Entry) log.Fields {
 	if (f.Flags & FlagExtractDetails) > 0 {
 		if err := f.GetError(entry); err != nil {
 			// entry.With* does not copy Level, Caller, Message, Buffer
-			entry.Data = entry.WithFields(log.Fields(keyval.ToMap(errors.GetDetails(err)))).Data
+			return entry.WithFields(log.Fields(keyval.ToMap(errors.GetDetails(err)))).Data
 		}
 	}
+
+	data := log.Fields{}
+	for k, v := range entry.Data {
+		data[k] = v
+	}
+	return data
 }
 
-/*FillCallStack extracts simplified call stack from errors.StackTracer, if enabled
-if FlagCallStackInFields, puts into entry.Data
-if FlagCallStackOnConsole, returns the call stack for printing it later on
-if FlagCallStackInHTTPProblem, ???
-*/
-func (f *AdvancedFormatter) FillCallStack(entry *log.Entry) []string {
+// GetCallStack extracts simplified call stack from errors.StackTracer, if enabled
+func (f *AdvancedFormatter) GetCallStack(entry *log.Entry) []string {
 	if (f.Flags & (FlagCallStackInFields | FlagCallStackOnConsole | FlagCallStackInHTTPProblem)) > 0 {
 		if err := f.GetError(entry); err != nil {
 			var stackTracer StackTracer
 			if errors.As(err, &stackTracer) {
 				callStackLines := buildCallStackLines(stackTracer)
 				if len(callStackLines) > f.CallStackSkipLast {
-					callStackLines = callStackLines[:len(callStackLines)-f.CallStackSkipLast]
-					if (f.Flags & FlagCallStackInFields) > 0 {
-						entry.Data[KeyCallStack] = callStackLines
-					}
-					if (f.Flags & FlagCallStackOnConsole) > 0 {
-						return callStackLines
-					}
+					return callStackLines[:len(callStackLines)-f.CallStackSkipLast]
 				}
 			}
 		}
@@ -70,15 +95,15 @@ func (f *AdvancedFormatter) FillCallStack(entry *log.Entry) []string {
 /*RenderFieldValues renders Details with field values (%+v), if enabled
 Forces rendering error by Error()
 */
-func (f *AdvancedFormatter) RenderFieldValues(entry *log.Entry) {
-	for key, value := range entry.Data {
+func (f *AdvancedFormatter) RenderFieldValues(data log.Fields) {
+	for key, value := range data {
 		if val := reflect.ValueOf(value); val.IsValid() {
 			err, isError := value.(error) // %+v prints out stack trace, too
 			if isError && err != nil {
-				entry.Data[key] = err.Error()
+				data[key] = err.Error()
 			} else if (f.Flags & FlagPrintStructFieldNames) > 0 {
 				if val.Kind() != reflect.String && !IsNumeric(val.Kind()) {
-					entry.Data[key] = fmt.Sprintf("%+v", value)
+					data[key] = fmt.Sprintf("%+v", value)
 				}
 			}
 		}

@@ -45,12 +45,16 @@ func NewAdvancedJSONFormatter(flags int, callStackSkipLast int) *AdvancedJSONFor
 
 // Format implements logrus.Formatter interface
 func (f *AdvancedJSONFormatter) Format(entry *log.Entry) ([]byte, error) {
-	f.FillDetailsToFields(entry)
-	callStackLines := f.FillCallStack(entry)
+	entry.Data = f.MergeDetailsToFields(entry)
+	callStackLines := f.GetCallStack(entry)
+	if (f.Flags & FlagCallStackInFields) > 0 {
+		entry.Data[KeyCallStack] = callStackLines
+	}
 
 	textPart, err := f.JSONFormatter.Format(entry)
 
-	textPart = f.AppendCallStack(textPart, callStackLines)
-
+	if (f.Flags & FlagCallStackOnConsole) > 0 {
+		textPart = f.AppendCallStack(textPart, callStackLines)
+	}
 	return textPart, err
 }

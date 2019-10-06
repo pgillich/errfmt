@@ -66,30 +66,11 @@ func NewAdvancedSyslogFormatter(flags int, callStackSkipLast int,
 func (f *AdvancedSyslogFormatter) Format(entry *log.Entry) ([]byte, error) { //nolint:funlen,gocyclo
 	trimJSONDquote := (f.Flags & FlagTrimJSONDquote) > 0
 
-	f.FillDetailsToFields(entry)
-
-	for _, key := range []string{
-		log.FieldKeyLevel, log.FieldKeyTime, log.FieldKeyFunc,
-		log.FieldKeyMsg, log.FieldKeyFile, KeyCallStack,
-	} {
-		prefixFieldClashes(entry.Data, key)
+	data := f.PrepareFields(entry)
+	callStackLines := f.GetCallStack(entry)
+	if (f.Flags & FlagCallStackInFields) > 0 {
+		entry.Data[KeyCallStack] = callStackLines
 	}
-
-	callStackLines := f.FillCallStack(entry)
-
-	f.RenderFieldValues(entry)
-
-	data := log.Fields{}
-	for key, value := range entry.Data {
-		data[key] = value
-	}
-
-	if entry.HasCaller() {
-		funcVal, fileVal := ModuleCallerPrettyfier(entry.Caller)
-		data[log.FieldKeyFunc] = funcVal
-		data[log.FieldKeyFile] = fileVal
-	}
-	data[log.FieldKeyLevel] = entry.Level
 
 	detailList := NewJSONDataElement(StructuredIDDetails)
 	detailKeys := []string{}
@@ -129,7 +110,9 @@ func (f *AdvancedSyslogFormatter) Format(entry *log.Entry) ([]byte, error) { //n
 	//textPart := []byte(message.String())
 	textPart := []byte(MessageString(message))
 
-	textPart = f.AppendCallStack(textPart, callStackLines)
+	if (f.Flags & FlagCallStackOnConsole) > 0 {
+		textPart = f.AppendCallStack(textPart, callStackLines)
+	}
 
 	return textPart, nil
 }
