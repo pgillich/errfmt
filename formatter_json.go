@@ -11,16 +11,12 @@ NewJSONLogger builds a customized Logrus JSON logger+formatter
 	* CallStackNewLines (only CallStackInFields)
 	* ModuleCallerPrettyfier
 */
-func NewJSONLogger(level log.Level, callStackSkipLast int, callStackNewLines bool,
-) *AdvancedLogger {
-	return &AdvancedLogger{
-		Logger: &log.Logger{
-			Formatter:    NewAdvancedJSONFormatter(),
-			Level:        level,
-			ReportCaller: true,
-		},
-		CallStackSkipLast: callStackSkipLast,
-		CallStackNewLines: callStackNewLines,
+func NewJSONLogger(level log.Level, flags int, callStackSkipLast int,
+) *log.Logger {
+	return &log.Logger{
+		Formatter:    NewAdvancedJSONFormatter(flags, callStackSkipLast),
+		Level:        level,
+		ReportCaller: true,
 	}
 }
 
@@ -31,19 +27,30 @@ AdvancedJSONFormatter is a customized Logrus JSON formatter
 */
 type AdvancedJSONFormatter struct {
 	log.JSONFormatter
+	AdvancedFormatter
 }
 
 // NewAdvancedJSONFormatter makes a new AdvancedJSONFormatter
-func NewAdvancedJSONFormatter() *AdvancedJSONFormatter {
+func NewAdvancedJSONFormatter(flags int, callStackSkipLast int) *AdvancedJSONFormatter {
 	return &AdvancedJSONFormatter{
 		JSONFormatter: log.JSONFormatter{
 			CallerPrettyfier: ModuleCallerPrettyfier,
+		},
+		AdvancedFormatter: AdvancedFormatter{
+			Flags:             flags,
+			CallStackSkipLast: callStackSkipLast,
 		},
 	}
 }
 
 // Format implements logrus.Formatter interface
 func (f *AdvancedJSONFormatter) Format(entry *log.Entry) ([]byte, error) {
+	f.FillDetailsToFields(entry)
+	callStackLines := f.FillCallStack(entry)
+
 	textPart, err := f.JSONFormatter.Format(entry)
+
+	textPart = f.AppendCallStack(textPart, callStackLines)
+
 	return textPart, err
 }

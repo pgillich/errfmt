@@ -1,10 +1,7 @@
 package errorformatter
 
 import (
-	"fmt"
-	"reflect"
 	"sort"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -16,17 +13,13 @@ NewTextLogger builds a customized Logrus JSON logger+formatter
 	* CallStackNewLines and CallStackInFields
 	* ModuleCallerPrettyfier
 	* PrintStructFieldNames
-*/
-func NewTextLogger(level log.Level, callStackSkipLast int, callStackNewLines bool, printStructFieldNames bool,
-) *AdvancedLogger {
-	return &AdvancedLogger{
-		Logger: &log.Logger{
-			Formatter:    NewAdvancedTextFormatter(printStructFieldNames),
-			Level:        level,
-			ReportCaller: true,
-		},
-		CallStackSkipLast: callStackSkipLast,
-		CallStackNewLines: callStackNewLines,
+*/ // nolint:lll
+func NewTextLogger(level log.Level, flags int, callStackSkipLast int, callStackNewLines bool, printStructFieldNames bool,
+) *log.Logger {
+	return &log.Logger{
+		Formatter:    NewAdvancedTextFormatter(flags, callStackSkipLast, printStructFieldNames),
+		Level:        level,
+		ReportCaller: true,
 	}
 }
 
@@ -39,11 +32,12 @@ AdvancedTextFormatter is a customized Logrus Text formatter
 */
 type AdvancedTextFormatter struct {
 	log.TextFormatter
+	AdvancedFormatter
 	PrintStructFieldNames bool
 }
 
 // NewAdvancedTextFormatter makes a new AdvancedTextFormatter
-func NewAdvancedTextFormatter(printStructFieldNames bool) *AdvancedTextFormatter {
+func NewAdvancedTextFormatter(flags int, callStackSkipLast int, printStructFieldNames bool) *AdvancedTextFormatter {
 	return &AdvancedTextFormatter{
 		TextFormatter: log.TextFormatter{
 			CallerPrettyfier: ModuleCallerPrettyfier,
@@ -51,35 +45,24 @@ func NewAdvancedTextFormatter(printStructFieldNames bool) *AdvancedTextFormatter
 			DisableColors:    true,
 			QuoteEmptyFields: true,
 		},
+		AdvancedFormatter: AdvancedFormatter{
+			Flags:             flags,
+			CallStackSkipLast: callStackSkipLast,
+		},
 		PrintStructFieldNames: printStructFieldNames,
 	}
 }
 
 // Format implements logrus.Formatter interface
+// nolint:gocyclo,funlen
 func (f *AdvancedTextFormatter) Format(entry *log.Entry) ([]byte, error) {
-	if f.PrintStructFieldNames {
-		for key, value := range entry.Data {
-			if val := reflect.ValueOf(value); val.IsValid() {
-				if val.Kind() != reflect.String && !IsNumeric(val.Kind()) {
-					entry.Data[key] = fmt.Sprintf("%+v", value)
-				}
-			}
-		}
-	}
+	f.FillDetailsToFields(entry)
+	callStackLines := f.FillCallStack(entry)
+	f.RenderFieldValues(entry)
 
 	textPart, err := f.TextFormatter.Format(entry)
 
-	if entry.Context != nil {
-		if callStack := entry.Context.Value(ContextLogFieldKey(KeyCallStack)); callStack != nil {
-			if callStackLines, ok := callStack.([]string); ok {
-				textPart = append(textPart, '\t')
-				textPart = append(textPart,
-					[]byte(strings.Join(callStackLines, "\n\t"))...,
-				)
-				textPart = append(textPart, '\n')
-			}
-		}
-	}
+	textPart = f.AppendCallStack(textPart, callStackLines)
 
 	return textPart, err
 }

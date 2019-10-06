@@ -5,7 +5,6 @@ package errorformatter
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -14,7 +13,6 @@ import (
 	"time"
 
 	"emperror.dev/errors"
-	"emperror.dev/errors/utils/keyval"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -25,6 +23,21 @@ const (
 	MaximumCallerDepth = 50
 	// DisabledFieldWeight is the value for dropping the field during ordering
 	DisabledFieldWeight = -100
+
+	// FlagNone disables all flags of AdvancedLogger.Flags
+	FlagNone = 0
+	// FlagExtractDetails extracts errors.Details to logrus.Fields
+	FlagExtractDetails = 1 << 0
+	// FlagCallStackInFields extracts errors.StackTrace() to logrus.Fields
+	FlagCallStackInFields = 1 << 1
+	// FlagCallStackOnConsole extracts errors.StackTrace() to logrus.Field "callstack"
+	FlagCallStackOnConsole = 1 << 2
+	// FlagCallStackInHTTPProblem extracts errors.StackTrace() to HTTPProblem
+	FlagCallStackInHTTPProblem = 1 << 3
+	// FlagPrintStructFieldNames renders non-scalar Details values are by "%+v", instead of "%v"
+	FlagPrintStructFieldNames = 1 << 4
+	// FlagTrimJSONDquote trims the leading and trailing '"' of JSON-formatted values
+	FlagTrimJSONDquote = 1 << 5
 )
 
 var (
@@ -52,51 +65,6 @@ type StackTracer interface {
 
 // ContextLogFieldKey is the type of field keys in log context
 type ContextLogFieldKey string
-
-// AdvancedLogger is a decorator struct to Logrus Logger
-type AdvancedLogger struct {
-	*log.Logger
-
-	/* CallStackSkipLast at WithErrorDetailsCallStack()
-	If 0, call stack lines are NOT printed (=disabled)
-	If >0, call stack lines are printed, skipping the last lines
-		so, the main() will never be printed.
-	*/
-	CallStackSkipLast int
-
-	/* CallStackNewLines at WithErrorDetailsCallStack()
-	true: call stack is printed in new lines
-	false: call stack is appended to Details with field "callstack"
-	*/
-	CallStackNewLines bool
-}
-
-// WithErrorDetailsCallStack prints out errors Details as fields and call stack, too
-func (logger *AdvancedLogger) WithErrorDetailsCallStack(err error) *log.Entry {
-	fields := keyval.ToMap(errors.GetDetails(err))
-
-	var stackTracer StackTracer
-	if logger.CallStackSkipLast > 0 && errors.As(err, &stackTracer) {
-		callStackLines := buildCallStackLines(stackTracer)
-		if len(callStackLines) > logger.CallStackSkipLast {
-			callStackLines = callStackLines[:len(callStackLines)-logger.CallStackSkipLast]
-			if logger.CallStackNewLines {
-				ctxCallStack := context.WithValue(context.Background(),
-					ContextLogFieldKey(KeyCallStack), callStackLines,
-				)
-				return logger.WithContext(ctxCallStack).WithFields(log.Fields(fields))
-			}
-			fields[KeyCallStack] = callStackLines
-		}
-	}
-
-	return logger.WithFields(log.Fields(fields))
-}
-
-// WithErrorDetails prints out errors Details as fields
-func (logger *AdvancedLogger) WithErrorDetails(level log.Level, err error) *log.Entry {
-	return logger.WithFields(log.Fields(keyval.ToMap(errors.GetDetails(err))))
-}
 
 /*
 ModuleCallerPrettyfier trims registered package name(s)
@@ -187,20 +155,20 @@ func (ds *dummyState) Flag(c int) bool {
 
 // FunctionName returns the actual function name (long)
 func FunctionName() string {
-	pc, _, _, _ := runtime.Caller(1)
+	pc, _, _, _ := runtime.Caller(1) // nolint:dogsled
 	return runtime.FuncForPC(pc).Name()
 }
 
 // FunctionNameShort returns the actual short function name (w/o package)
 func FunctionNameShort() string {
-	pc, _, _, _ := runtime.Caller(1)
+	pc, _, _, _ := runtime.Caller(1) // nolint:dogsled
 	longName := runtime.FuncForPC(pc).Name()
 	return longName[strings.LastIndex(longName, "/")+1:]
 }
 
 // CallerFunctionName returns the calles (long) function name
 func CallerFunctionName() string {
-	pc, _, _, _ := runtime.Caller(2)
+	pc, _, _, _ := runtime.Caller(2) // nolint:dogsled
 	return runtime.FuncForPC(pc).Name()
 }
 
@@ -289,4 +257,3 @@ func GetFieldString(input interface{}, keyName string) *string {
 
 	return nil
 }
-

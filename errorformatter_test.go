@@ -10,14 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"emperror.dev/errors"
-)
-
-const (
-	StaticTimeFormat = "8008-08-08T08:08:08Z"
+	log "github.com/sirupsen/logrus"
 )
 
 type LoggerMock struct {
-	*AdvancedLogger
+	*log.Logger
 	outBuf   *bytes.Buffer
 	exitCode int
 }

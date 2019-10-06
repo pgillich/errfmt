@@ -11,15 +11,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func newJSONLoggerMock(callStackSkipLast int, callStackNewLines bool) *LoggerMock {
+func newJSONLoggerMock(flags int, callStackSkipLast int) *LoggerMock {
 	RegisterSkipPackageFromStackTrace(pkgPathMarker{})
 
-	logger := NewJSONLogger(log.InfoLevel, callStackSkipLast, callStackNewLines)
+	logger := NewJSONLogger(log.InfoLevel, flags, callStackSkipLast)
 	buf := new(bytes.Buffer)
 	loggerMock := &LoggerMock{
-		AdvancedLogger: logger,
-		outBuf:         buf,
-		exitCode:       -1,
+		Logger:   logger,
+		outBuf:   buf,
+		exitCode: -1,
 	}
 	loggerMock.Out = buf
 	loggerMock.ExitFunc = loggerMock.exit
@@ -29,7 +29,9 @@ func newJSONLoggerMock(callStackSkipLast int, callStackNewLines bool) *LoggerMoc
 
 func TestLogrus_JSONLogger(t *testing.T) {
 	funcName := FunctionNameShort()
-	loggerMock := newJSONLoggerMock(2, true)
+	loggerMock := newJSONLoggerMock(
+		FlagExtractDetails,
+		2)
 	ts := time.Now()
 	tsRFC3339 := ts.Format(time.RFC3339)
 	formatter, ok := loggerMock.Logger.Formatter.(*AdvancedJSONFormatter)
@@ -37,7 +39,7 @@ func TestLogrus_JSONLogger(t *testing.T) {
 	formatter.PrettyPrint = true
 
 	err := makeDeepErrors()
-	SetEntryTimestamp(loggerMock.WithErrorDetailsCallStack(err), ts).Log(log.ErrorLevel, err)
+	loggerMock.WithError(err).WithTime(ts).Log(log.ErrorLevel, "USER MSG")
 
 	if debugTest {
 		fmt.Printf("###\n%s\n###\n", loggerMock.outBuf.String())
@@ -64,10 +66,11 @@ func TestLogrus_JSONLogger(t *testing.T) {
     "Integer": 42,
     "Bool": true
   },
+  "error": "MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax",
   "file": "formatter_json_test.go:0",
   "func": "`+funcName+`",
   "level": "error",
-  "msg": "MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax",
+  "msg": "USER MSG",
   "time": "`+tsRFC3339+`"
 }
 `, replaceCallLine(loggerMock.outBuf.String()))
@@ -76,7 +79,9 @@ func TestLogrus_JSONLogger(t *testing.T) {
 
 func TestLogrus_JSONLogger_CallStackInFields(t *testing.T) {
 	funcName := FunctionNameShort()
-	loggerMock := newJSONLoggerMock(2, false)
+	loggerMock := newJSONLoggerMock(
+		FlagExtractDetails|FlagCallStackInFields,
+		2)
 	ts := time.Now()
 	tsRFC3339 := ts.Format(time.RFC3339)
 	formatter, ok := loggerMock.Logger.Formatter.(*AdvancedJSONFormatter)
@@ -84,7 +89,7 @@ func TestLogrus_JSONLogger_CallStackInFields(t *testing.T) {
 	formatter.PrettyPrint = true
 
 	err := makeDeepErrors()
-	SetEntryTimestamp(loggerMock.WithErrorDetailsCallStack(err), ts).Log(log.ErrorLevel, err)
+	loggerMock.WithError(err).WithTime(ts).Log(log.ErrorLevel, "USER MSG")
 
 	if debugTest {
 		fmt.Printf("###\n%s\n###\n", loggerMock.outBuf.String())
@@ -116,10 +121,11 @@ func TestLogrus_JSONLogger_CallStackInFields(t *testing.T) {
     "errorformatter.makeDeepErrors() errorformatter_test.go:0",
     "`+funcName+`() formatter_json_test.go:0"
   ],
+  "error": "MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax",
   "file": "formatter_json_test.go:0",
   "func": "`+funcName+`",
   "level": "error",
-  "msg": "MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax",
+  "msg": "USER MSG",
   "time": "`+tsRFC3339+`"
 }
 `, replaceCallLine(loggerMock.outBuf.String()))

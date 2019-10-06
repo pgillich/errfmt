@@ -2,7 +2,6 @@ package errorformatter
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/juju/rfc/rfc5424"
@@ -17,19 +16,15 @@ const (
 )
 
 // nolint:golint
-func NewSyslogLogger(level log.Level, callStackSkipLast int, callStackNewLines bool,
+func NewSyslogLogger(level log.Level, flags int, callStackSkipLast int,
 	facility rfc5424.Facility, hostname rfc5424.Hostname, appName string,
 	procID string, msgID string,
-) *AdvancedLogger {
-	return &AdvancedLogger{
-		Logger: &log.Logger{
-			Formatter: NewAdvancedSyslogFormatter(
-				facility, hostname, appName, procID, msgID, true),
-			Level:        level,
-			ReportCaller: true,
-		},
-		CallStackSkipLast: callStackSkipLast,
-		CallStackNewLines: callStackNewLines,
+) *log.Logger {
+	return &log.Logger{
+		Formatter: NewAdvancedSyslogFormatter(flags, callStackSkipLast,
+			facility, hostname, appName, procID, msgID),
+		Level:        level,
+		ReportCaller: true,
 	}
 }
 
@@ -41,13 +36,14 @@ type AdvancedSyslogFormatter struct {
 	AppName         rfc5424.AppName
 	ProcID          rfc5424.ProcID
 	MsgID           rfc5424.MsgID
-	TrimJSONDquote  bool
+	AdvancedFormatter
+	SortingFunc func([]string)
 }
 
 // nolint:golint
-func NewAdvancedSyslogFormatter(
+func NewAdvancedSyslogFormatter(flags int, callStackSkipLast int,
 	facility rfc5424.Facility, hostname rfc5424.Hostname, appName string,
-	procID string, msgID string, trimJSONDquote bool,
+	procID string, msgID string,
 ) *AdvancedSyslogFormatter {
 	advancedSyslogFormatter := AdvancedSyslogFormatter{
 		LevelToSeverity: DefaultLevelToSeverity(),
@@ -56,7 +52,11 @@ func NewAdvancedSyslogFormatter(
 		AppName:         rfc5424.AppName(appName),
 		ProcID:          rfc5424.ProcID(procID),
 		MsgID:           rfc5424.MsgID(msgID),
-		TrimJSONDquote:  trimJSONDquote,
+		AdvancedFormatter: AdvancedFormatter{
+			Flags:             flags,
+			CallStackSkipLast: callStackSkipLast,
+		},
+		SortingFunc: SortingFuncDecorator(AdvancedFieldOrder()),
 	}
 
 	return &advancedSyslogFormatter
@@ -64,51 +64,41 @@ func NewAdvancedSyslogFormatter(
 
 // Format implements logrus.Formatter interface
 func (f *AdvancedSyslogFormatter) Format(entry *log.Entry) ([]byte, error) { //nolint:funlen,gocyclo
-	var err error
+	trimJSONDquote := (f.Flags & FlagTrimJSONDquote) > 0
 
-	detailList := NewJSONDataElement(StructuredIDDetails)
-
-	data := make(log.Fields)
-	for k, v := range entry.Data {
-		switch v := v.(type) {
-		case error:
-			// Otherwise errors are ignored by `encoding/json`
-			// https://github.com/sirupsen/logrus/issues/137
-			data[k] = v.Error()
-		default:
-			data[k] = v
-		}
-	}
+	f.FillDetailsToFields(entry)
 
 	for _, key := range []string{
 		log.FieldKeyLevel, log.FieldKeyTime, log.FieldKeyFunc,
 		log.FieldKeyMsg, log.FieldKeyFile, KeyCallStack,
 	} {
-		prefixFieldClashes(data, key)
+		prefixFieldClashes(entry.Data, key)
 	}
 
-	var funcVal, fileVal string
+	callStackLines := f.FillCallStack(entry)
+
+	f.RenderFieldValues(entry)
+
+	data := log.Fields{}
+	for key, value := range entry.Data {
+		data[key] = value
+	}
+
 	if entry.HasCaller() {
-		funcVal, fileVal = ModuleCallerPrettyfier(entry.Caller)
-		detailList.Append(log.FieldKeyFunc, funcVal, f.TrimJSONDquote)
+		funcVal, fileVal := ModuleCallerPrettyfier(entry.Caller)
+		data[log.FieldKeyFunc] = funcVal
+		data[log.FieldKeyFile] = fileVal
 	}
-	if errorVal, ok := data[log.ErrorKey]; ok {
-		detailList.Append(log.ErrorKey, errorVal, f.TrimJSONDquote)
-		delete(data, log.ErrorKey)
-	}
+	data[log.FieldKeyLevel] = entry.Level
 
+	detailList := NewJSONDataElement(StructuredIDDetails)
 	detailKeys := []string{}
-	for key := range entry.Data {
+	for key := range data {
 		detailKeys = append(detailKeys, key)
 	}
-	sort.Strings(detailKeys)
-
+	f.SortingFunc(detailKeys)
 	for _, key := range detailKeys {
-		detailList.Append(key, entry.Data[key], f.TrimJSONDquote)
-	}
-
-	if len(fileVal) > 0 {
-		detailList.Append(log.FieldKeyFile, fileVal, f.TrimJSONDquote)
+		detailList.Append(key, data[key], trimJSONDquote)
 	}
 
 	structuredData := rfc5424.StructuredData{
@@ -139,22 +129,9 @@ func (f *AdvancedSyslogFormatter) Format(entry *log.Entry) ([]byte, error) { //n
 	//textPart := []byte(message.String())
 	textPart := []byte(MessageString(message))
 
-	if entry.Context != nil {
-		if callStack := entry.Context.Value(ContextLogFieldKey(KeyCallStack)); callStack != nil {
-			if callStackLines, ok := callStack.([]string); ok {
-				if textPart[len(textPart)-1] != '\n' {
-					textPart = append(textPart, '\n')
-				}
-				textPart = append(textPart, '\t')
-				textPart = append(textPart,
-					[]byte(strings.Join(callStackLines, "\n\t"))...,
-				)
-				textPart = append(textPart, '\n')
-			}
-		}
-	}
+	textPart = f.AppendCallStack(textPart, callStackLines)
 
-	return textPart, err
+	return textPart, nil
 }
 
 // nolint:golint
