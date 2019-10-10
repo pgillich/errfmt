@@ -54,8 +54,8 @@ func TestLogrus_RenderHTTPProblem_CallStackNewLines(t *testing.T) {
     "time": "\"`+tsRFC3339+`\""
   },
   "callstack": [
-    "errorformatter.newWithDetails() errorformatter_test.go:0",
-    "errorformatter.GenerateDeepErrors() errorformatter_test.go:0",
+    "errorformatter.newWithDetails() errorformatter.go:0",
+    "errorformatter.GenerateDeepErrors() errorformatter.go:0",
     "`+funcName+`() formatter_html_test.go:0"
   ]
 }`, replaceCallLine(respText))
