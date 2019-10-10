@@ -44,7 +44,7 @@ func TestSyslog_WithErrorDetailsCallStack_CallStackNewLines(t *testing.T) {
 	ts := time.Now()
 	tsRFC3339 := ts.Format(time.RFC3339Nano)
 
-	err := makeDeepErrors()
+	err := GenerateDeepErrors()
 	loggerMock.WithError(err).WithTime(ts).Log(log.ErrorLevel, "USER MSG")
 
 	if debugTest {
@@ -53,7 +53,7 @@ func TestSyslog_WithErrorDetailsCallStack_CallStackNewLines(t *testing.T) {
 	// nolint:lll
 	assert.Equal(t, `<27>1 `+tsRFC3339+` fqdn.host.com application PID DETAILS_MSG [details level="error" func="`+funcName+`" error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax" file="formatter_syslog_test.go:0" K0_1="V0_1" K0_2="V0_2" K1_1="V1_1" K1_2="V1_2" K3_2="V3 space" K3_5="V3\\\"doublequote" K3%6="V3%percent" K3:3="V3:column" K3;3="V3;semicolumn" K3_1="V3=equal" K5_bool="true" K5_int="12" K5_map="{\"1\":\"ONE\",\"2\":\"TWO\"}" K5_struct="{\"Text\":\"text\",\"Integer\":42,\"Bool\":true}"] USER MSG
 	errorformatter.newWithDetails() errorformatter_test.go:0
-	errorformatter.makeDeepErrors() errorformatter_test.go:0
+	errorformatter.GenerateDeepErrors() errorformatter_test.go:0
 	`+funcName+`() formatter_syslog_test.go:0
 `, replaceCallLine(loggerMock.outBuf.String()))
 }
@@ -66,12 +66,12 @@ func TestSyslog_WithErrorDetailsCallStack_CallStackInFields(t *testing.T) {
 	ts := time.Now()
 	tsRFC3339 := ts.Format(time.RFC3339Nano)
 
-	err := makeDeepErrors()
+	err := GenerateDeepErrors()
 	loggerMock.WithError(err).WithTime(ts).Log(log.ErrorLevel, "USER MSG")
 
 	if debugTest {
 		fmt.Printf("###\n%s\n###\n", loggerMock.outBuf.String())
 	}
 	// nolint:lll
-	assert.Equal(t, `<27>1 `+tsRFC3339+` fqdn.host.com application PID DETAILS_MSG [details level="error" func="`+funcName+`" error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax" file="formatter_syslog_test.go:0" K0_1="V0_1" K0_2="V0_2" K1_1="V1_1" K1_2="V1_2" K3_2="V3 space" K3_5="V3\\\"doublequote" K3%6="V3%percent" K3:3="V3:column" K3;3="V3;semicolumn" K3_1="V3=equal" K5_bool="true" K5_int="12" K5_map="{\"1\":\"ONE\",\"2\":\"TWO\"}" K5_struct="{\"Text\":\"text\",\"Integer\":42,\"Bool\":true}" callstack="[\"errorformatter.newWithDetails() errorformatter_test.go:0\",\"errorformatter.makeDeepErrors() errorformatter_test.go:0\",\"`+funcName+`() formatter_syslog_test.go:0\"\]"] USER MSG`, replaceCallLine(loggerMock.outBuf.String()))
+	assert.Equal(t, `<27>1 `+tsRFC3339+` fqdn.host.com application PID DETAILS_MSG [details level="error" func="`+funcName+`" error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax" file="formatter_syslog_test.go:0" K0_1="V0_1" K0_2="V0_2" K1_1="V1_1" K1_2="V1_2" K3_2="V3 space" K3_5="V3\\\"doublequote" K3%6="V3%percent" K3:3="V3:column" K3;3="V3;semicolumn" K3_1="V3=equal" K5_bool="true" K5_int="12" K5_map="{\"1\":\"ONE\",\"2\":\"TWO\"}" K5_struct="{\"Text\":\"text\",\"Integer\":42,\"Bool\":true}" callstack="[\"errorformatter.newWithDetails() errorformatter_test.go:0\",\"errorformatter.GenerateDeepErrors() errorformatter_test.go:0\",\"`+funcName+`() formatter_syslog_test.go:0\"\]"] USER MSG`, replaceCallLine(loggerMock.outBuf.String()))
 }

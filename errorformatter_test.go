@@ -33,7 +33,7 @@ func newWithDetails() error {
 	return errors.WrapWithDetails(err, "MESSAGE%0", "K0_1", "V0_1", "K0_2", "V0_2")
 }
 
-func makeDeepErrors() error {
+func GenerateDeepErrors() error {
 	type complexStruct struct {
 		Text    string
 		Integer int
@@ -64,7 +64,7 @@ func makeDeepErrors() error {
 }
 
 func TestMessages(t *testing.T) {
-	err := makeDeepErrors()
+	err := GenerateDeepErrors()
 
 	text := fmt.Sprintf("%s", err)
 	assert.Equal(t, `MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing "NO_NUMBER": invalid syntax`, text)

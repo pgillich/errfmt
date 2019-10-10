@@ -18,7 +18,7 @@ func TestLogrus_RenderHTTPProblem_CallStackNewLines(t *testing.T) {
 	ts := time.Now()
 	tsRFC3339 := ts.Format(time.RFC3339)
 
-	err := makeDeepErrors()
+	err := GenerateDeepErrors()
 	respBody, problemErr := RenderHTTPProblem(
 		loggerMock.WithError(err).WithTime(ts), log.ErrorLevel, http.StatusPreconditionFailed,
 	) /*.Log(log.ErrorLevel, "USER MSG")*/
@@ -55,7 +55,7 @@ func TestLogrus_RenderHTTPProblem_CallStackNewLines(t *testing.T) {
   },
   "callstack": [
     "errorformatter.newWithDetails() errorformatter_test.go:0",
-    "errorformatter.makeDeepErrors() errorformatter_test.go:0",
+    "errorformatter.GenerateDeepErrors() errorformatter_test.go:0",
     "`+funcName+`() formatter_html_test.go:0"
   ]
 }`, replaceCallLine(respText))

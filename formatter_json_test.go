@@ -38,7 +38,7 @@ func TestLogrus_JSONLogger(t *testing.T) {
 	assert.True(t, ok, "AdvancedJSONFormatter")
 	formatter.PrettyPrint = true
 
-	err := makeDeepErrors()
+	err := GenerateDeepErrors()
 	loggerMock.WithError(err).WithTime(ts).Log(log.ErrorLevel, "USER MSG")
 
 	if debugTest {
@@ -88,7 +88,7 @@ func TestLogrus_JSONLogger_CallStackInFields(t *testing.T) {
 	assert.True(t, ok, "AdvancedJSONFormatter")
 	formatter.PrettyPrint = true
 
-	err := makeDeepErrors()
+	err := GenerateDeepErrors()
 	loggerMock.WithError(err).WithTime(ts).Log(log.ErrorLevel, "USER MSG")
 
 	if debugTest {
@@ -118,7 +118,7 @@ func TestLogrus_JSONLogger_CallStackInFields(t *testing.T) {
   },
   "callstack": [
     "errorformatter.newWithDetails() errorformatter_test.go:0",
-    "errorformatter.makeDeepErrors() errorformatter_test.go:0",
+    "errorformatter.GenerateDeepErrors() errorformatter_test.go:0",
     "`+funcName+`() formatter_json_test.go:0"
   ],
   "error": "MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax",
