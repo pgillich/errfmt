@@ -13,11 +13,11 @@ NewTextLogger builds a customized Logrus JSON logger+formatter
 	* CallStackNewLines and CallStackInFields
 	* ModuleCallerPrettyfier
 	* PrintStructFieldNames
-*/ // nolint:lll
-func NewTextLogger(level log.Level, flags int, callStackSkipLast int, callStackNewLines bool, printStructFieldNames bool,
+*/
+func NewTextLogger(level log.Level, flags int, callStackSkipLast int,
 ) *log.Logger {
 	return &log.Logger{
-		Formatter:    NewAdvancedTextFormatter(flags, callStackSkipLast, printStructFieldNames),
+		Formatter:    NewAdvancedTextFormatter(flags, callStackSkipLast),
 		Level:        level,
 		ReportCaller: true,
 	}
@@ -33,11 +33,10 @@ AdvancedTextFormatter is a customized Logrus Text formatter
 type AdvancedTextFormatter struct {
 	log.TextFormatter
 	AdvancedFormatter
-	PrintStructFieldNames bool
 }
 
 // NewAdvancedTextFormatter makes a new AdvancedTextFormatter
-func NewAdvancedTextFormatter(flags int, callStackSkipLast int, printStructFieldNames bool) *AdvancedTextFormatter {
+func NewAdvancedTextFormatter(flags int, callStackSkipLast int) *AdvancedTextFormatter {
 	return &AdvancedTextFormatter{
 		TextFormatter: log.TextFormatter{
 			CallerPrettyfier: ModuleCallerPrettyfier,
@@ -49,7 +48,6 @@ func NewAdvancedTextFormatter(flags int, callStackSkipLast int, printStructField
 			Flags:             flags,
 			CallStackSkipLast: callStackSkipLast,
 		},
-		PrintStructFieldNames: printStructFieldNames,
 	}
 }
 

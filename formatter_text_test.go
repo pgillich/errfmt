@@ -12,10 +12,10 @@ import (
 )
 
 // nolint:unparam,lll
-func newTextLoggerMock(flags int, callStackSkipLast int, callStackNewLines bool, printStructFieldNames bool) *LoggerMock {
+func newTextLoggerMock(flags int, callStackSkipLast int) *LoggerMock {
 	RegisterSkipPackageFromStackTrace(pkgPathMarker{})
 
-	logger := NewTextLogger(log.InfoLevel, flags, callStackSkipLast, callStackNewLines, printStructFieldNames)
+	logger := NewTextLogger(log.InfoLevel, flags, callStackSkipLast)
 	buf := new(bytes.Buffer)
 	loggerMock := &LoggerMock{
 		Logger:   logger,
@@ -32,7 +32,7 @@ func TestLogrus_WithError_CallStackNewLines(t *testing.T) {
 	funcName := FunctionNameShort()
 	loggerMock := newTextLoggerMock(
 		FlagExtractDetails|FlagCallStackOnConsole,
-		2, true, false)
+		2)
 	ts := time.Now()
 	tsRFC3339 := ts.Format(time.RFC3339)
 
@@ -54,7 +54,7 @@ func TestLogrus_WithError_ExtractDetails_CallStackOnConsole(t *testing.T) {
 	funcName := FunctionNameShort()
 	loggerMock := newTextLoggerMock(
 		FlagExtractDetails|FlagCallStackOnConsole,
-		2, true, false)
+		2)
 	ts := time.Now()
 	tsRFC3339 := ts.Format(time.RFC3339)
 
@@ -76,7 +76,7 @@ func TestLogrus_WithError_ExtractDetails_CallStackOnConsole_PrintStructFieldName
 	funcName := FunctionNameShort()
 	loggerMock := newTextLoggerMock(
 		FlagExtractDetails|FlagCallStackOnConsole|FlagPrintStructFieldNames,
-		2, true, true)
+		2)
 	ts := time.Now()
 	tsRFC3339 := ts.Format(time.RFC3339)
 
@@ -98,7 +98,7 @@ func TestErrors_WithError_ExtractDetails_CallStackInFields(t *testing.T) {
 	funcName := FunctionNameShort()
 	loggerMock := newTextLoggerMock(
 		FlagExtractDetails|FlagCallStackInFields,
-		2, false, false)
+		2)
 	ts := time.Now()
 	tsRFC3339 := ts.Format(time.RFC3339)
 
@@ -117,7 +117,7 @@ func TestLogrus_TextLogger_Info(t *testing.T) {
 	funcName := FunctionNameShort()
 	loggerMock := newTextLoggerMock(
 		FlagExtractDetails|FlagCallStackOnConsole,
-		2, true, false)
+		2)
 	ts := time.Now()
 	tsRFC3339 := ts.Format(time.RFC3339)
 	/*
@@ -141,7 +141,7 @@ func TestLogrus_TextLogger_WithError_Info(t *testing.T) {
 	funcName := FunctionNameShort()
 	loggerMock := newTextLoggerMock(
 		FlagNone,
-		2, true, false)
+		2)
 	ts := time.Now()
 	tsRFC3339 := ts.Format(time.RFC3339)
 
@@ -160,7 +160,7 @@ func TestLogrus_WithError_ExtractDetails(t *testing.T) {
 	funcName := FunctionNameShort()
 	loggerMock := newTextLoggerMock(
 		FlagExtractDetails,
-		2, true, false)
+		2)
 	ts := time.Now()
 	tsRFC3339 := ts.Format(time.RFC3339)
 

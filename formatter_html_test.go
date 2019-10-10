@@ -14,7 +14,7 @@ func TestLogrus_RenderHTTPProblem_CallStackNewLines(t *testing.T) {
 	funcName := FunctionNameShort()
 	loggerMock := newTextLoggerMock(
 		FlagExtractDetails|FlagCallStackInHTTPProblem,
-		2, true, false)
+		2)
 	ts := time.Now()
 	tsRFC3339 := ts.Format(time.RFC3339)
 
