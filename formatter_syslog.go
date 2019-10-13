@@ -12,7 +12,7 @@ const (
 	// nolint:golint
 	StructuredIDDetails = "details"
 	// nolint:golint
-	StructuredIDCallStack = KeyCallStack
+	StructuredIDCallStack = "calls"
 )
 
 // nolint:golint
@@ -68,14 +68,13 @@ func (f *AdvancedSyslogFormatter) Format(entry *log.Entry) ([]byte, error) { //n
 
 	data := f.PrepareFields(entry)
 	callStackLines := f.GetCallStack(entry)
-	if (f.Flags & FlagCallStackInFields) > 0 {
-		entry.Data[KeyCallStack] = callStackLines
-	}
 
 	detailList := NewJSONDataElement(StructuredIDDetails)
 	detailKeys := []string{}
 	for key := range data {
-		detailKeys = append(detailKeys, key)
+		if key != KeyCallStack {
+			detailKeys = append(detailKeys, key)
+		}
 	}
 	f.SortingFunc(detailKeys)
 	for _, key := range detailKeys {
@@ -86,9 +85,18 @@ func (f *AdvancedSyslogFormatter) Format(entry *log.Entry) ([]byte, error) { //n
 		detailList,
 	}
 
+	msgIDdefault := "DETAILS_MSG"
+	if (f.Flags & FlagCallStackInFields) > 0 {
+		msgIDdefault = "DETAILS_CALLS_MSG"
+
+		callsList := NewJSONDataElement(StructuredIDCallStack)
+		callsList.Append(KeyCallStack, callStackLines, trimJSONDquote)
+
+		structuredData = append(structuredData, callsList)
+	}
 	msgID := f.MsgID
 	if msgID == "" {
-		msgID = "DETAILS_MSG"
+		msgID = rfc5424.MsgID(msgIDdefault)
 	}
 
 	message := rfc5424.Message{
