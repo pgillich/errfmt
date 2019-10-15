@@ -62,7 +62,11 @@ func RenderHTTPProblem(entry *log.Entry, level log.Level, statusCode int) ([]byt
 
 	data[log.FieldKeyLevel] = level
 
-	data[log.FieldKeyTime] = entry.Time.Format(time.RFC3339)
+	if entry.Time.IsZero() {
+		data[log.FieldKeyTime] = time.Now().Format(time.RFC3339)
+	} else {
+		data[log.FieldKeyTime] = entry.Time.Format(time.RFC3339)
+	}
 
 	callStack := []string{}
 	callStackLines := f.GetCallStack(entry)
