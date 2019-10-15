@@ -16,11 +16,13 @@ NewTextLogger builds a customized Logrus JSON logger+formatter
 */
 func NewTextLogger(level log.Level, flags int, callStackSkipLast int,
 ) *log.Logger {
-	return &log.Logger{
-		Formatter:    NewAdvancedTextFormatter(flags, callStackSkipLast),
-		Level:        level,
-		ReportCaller: true,
-	}
+	logger := log.New()
+
+	logger.Formatter = NewAdvancedTextFormatter(flags, callStackSkipLast)
+	logger.Level = level
+	logger.ReportCaller = true
+
+	return logger
 }
 
 /*

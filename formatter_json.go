@@ -13,11 +13,13 @@ NewJSONLogger builds a customized Logrus JSON logger+formatter
 */
 func NewJSONLogger(level log.Level, flags int, callStackSkipLast int,
 ) *log.Logger {
-	return &log.Logger{
-		Formatter:    NewAdvancedJSONFormatter(flags, callStackSkipLast),
-		Level:        level,
-		ReportCaller: true,
-	}
+	logger := log.New()
+
+	logger.Formatter = NewAdvancedJSONFormatter(flags, callStackSkipLast)
+	logger.Level = level
+	logger.ReportCaller = true
+
+	return logger
 }
 
 /*

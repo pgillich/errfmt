@@ -20,12 +20,14 @@ func NewSyslogLogger(level log.Level, flags int, callStackSkipLast int,
 	facility rfc5424.Facility, hostname rfc5424.Hostname, appName string,
 	procID string, msgID string,
 ) *log.Logger {
-	return &log.Logger{
-		Formatter: NewAdvancedSyslogFormatter(flags, callStackSkipLast,
-			facility, hostname, appName, procID, msgID),
-		Level:        level,
-		ReportCaller: true,
-	}
+	logger := log.New()
+
+	logger.Formatter = NewAdvancedSyslogFormatter(flags, callStackSkipLast,
+		facility, hostname, appName, procID, msgID)
+	logger.Level = level
+	logger.ReportCaller = true
+
+	return logger
 }
 
 // nolint:golint
