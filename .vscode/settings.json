@@ -5,5 +5,8 @@
     "go.useLanguageServer": false,
     "go.lintTool": "golangci-lint",
     "editor.formatOnSaveTimeout": 1500,
-    "diffEditor.ignoreTrimWhitespace": true
+    "diffEditor.ignoreTrimWhitespace": true,
+    "markdownlint.config": {
+        "MD010": false,
+    },
 }
