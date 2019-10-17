@@ -31,13 +31,10 @@ func (f *AdvancedFormatter) GetError(entry *log.Entry) error {
 }
 
 // PrepareFields copies entry.Data to new and prepares for formatting
-func (f *AdvancedFormatter) PrepareFields(entry *log.Entry) log.Fields {
+func (f *AdvancedFormatter) PrepareFields(entry *log.Entry, fixedFields []string) log.Fields {
 	data := f.MergeDetailsToFields(entry)
 
-	for _, key := range []string{
-		log.FieldKeyLevel, log.FieldKeyTime, log.FieldKeyFunc,
-		log.FieldKeyMsg, log.FieldKeyFile, KeyCallStack,
-	} {
+	for _, key := range fixedFields {
 		prefixFieldClashes(data, key)
 	}
 
@@ -53,7 +50,9 @@ func (f *AdvancedFormatter) PrepareFields(entry *log.Entry) log.Fields {
 		data[log.FieldKeyFunc] = funcVal
 		data[log.FieldKeyFile] = fileVal
 	}
-	data[log.FieldKeyLevel] = entry.Level
+	if entry.Level != log.PanicLevel {
+		data[log.FieldKeyLevel] = entry.Level
+	}
 
 	return data
 }
@@ -124,4 +123,12 @@ func (f *AdvancedFormatter) AppendCallStack(textPart []byte, callStackLines []st
 	}
 
 	return textPart
+}
+
+// GetClashingFields returns the automatical filles fields
+func (f *AdvancedFormatter) GetClashingFields() []string {
+	return []string{
+		log.FieldKeyLevel, log.FieldKeyTime, log.FieldKeyFunc,
+		log.FieldKeyMsg, log.FieldKeyFile, KeyCallStack,
+	}
 }

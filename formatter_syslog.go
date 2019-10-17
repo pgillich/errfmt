@@ -68,7 +68,7 @@ func NewAdvancedSyslogFormatter(flags int, callStackSkipLast int,
 func (f *AdvancedSyslogFormatter) Format(entry *log.Entry) ([]byte, error) { //nolint:funlen,gocyclo
 	trimJSONDquote := (f.Flags & FlagTrimJSONDquote) > 0
 
-	data := f.PrepareFields(entry)
+	data := f.PrepareFields(entry, f.GetClashingFields())
 	callStackLines := f.GetCallStack(entry)
 
 	detailList := NewJSONDataElement(StructuredIDDetails)

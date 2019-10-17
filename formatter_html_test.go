@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,8 +18,8 @@ func TestLogrus_RenderHTTPProblem_CallStackNewLines(t *testing.T) {
 	tsRFC3339 := ts.Format(time.RFC3339)
 
 	err := GenerateDeepErrors()
-	respBody, problemErr := RenderHTTPProblem(
-		loggerMock.WithError(err).WithTime(ts), log.ErrorLevel, http.StatusPreconditionFailed,
+	respBody, problemErr := RenderHTTPProblem(http.StatusPreconditionFailed,
+		loggerMock.WithError(err).WithTime(ts),
 	) /*.Log(log.ErrorLevel, "USER MSG")*/
 	assert.Nil(t, problemErr, fmt.Sprintf("%s", problemErr))
 	respText := string(respBody)
@@ -50,7 +49,6 @@ func TestLogrus_RenderHTTPProblem_CallStackNewLines(t *testing.T) {
     "K5_map": "{\"1\":\"ONE\",\"2\":\"TWO\"}",
     "K5_struct": "{\"Text\":\"text\",\"Integer\":42,\"Bool\":true}",
     "error": "\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"",
-    "level": "\"error\"",
     "time": "\"`+tsRFC3339+`\""
   },
   "callstack": [

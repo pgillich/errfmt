@@ -17,12 +17,12 @@ const (
 )
 
 // nolint:golint
-func WriteHTTPProblem(w http.ResponseWriter, entry *log.Entry, level log.Level, statusCode int) *log.Entry {
+func WriteHTTPProblem(w http.ResponseWriter, statusCode int, entry *log.Entry) *log.Entry {
 	respBody := []byte{}
 
 	w.Header().Set("Content-Type", problems.ProblemMediaType)
 	w.WriteHeader(statusCode)
-	entry = ExtractHTTPProblem(&respBody, entry, level, statusCode)
+	entry = ExtractHTTPProblem(&respBody, statusCode, entry)
 	_, err := w.Write(respBody)
 	if err != nil {
 		entry.Data[KeyHTTPProblemError] = err
@@ -32,8 +32,8 @@ func WriteHTTPProblem(w http.ResponseWriter, entry *log.Entry, level log.Level, 
 }
 
 // nolint:golint
-func ExtractHTTPProblem(respBody *[]byte, entry *log.Entry, level log.Level, statusCode int) *log.Entry {
-	body, err := RenderHTTPProblem(entry, level, statusCode)
+func ExtractHTTPProblem(respBody *[]byte, statusCode int, entry *log.Entry) *log.Entry {
+	body, err := RenderHTTPProblem(statusCode, entry)
 	if err != nil {
 		entry.Data[KeyHTTPProblemError] = err
 	}
@@ -56,11 +56,9 @@ func GetAdvancedFormatter(formatter log.Formatter) *AdvancedFormatter {
 }
 
 // nolint:golint,gocyclo,funlen
-func RenderHTTPProblem(entry *log.Entry, level log.Level, statusCode int) ([]byte, error) {
+func RenderHTTPProblem(statusCode int, entry *log.Entry) ([]byte, error) {
 	f := GetAdvancedFormatter(entry.Logger.Formatter)
-	data := f.PrepareFields(entry)
-
-	data[log.FieldKeyLevel] = level
+	data := f.PrepareFields(entry, GetClashingFieldsHTTP())
 
 	if entry.Time.IsZero() {
 		data[log.FieldKeyTime] = time.Now().Format(time.RFC3339)
@@ -147,4 +145,12 @@ func NewHTTPProblem(status int, title string, message string,
 		CallStack: callStack,
 	}
 	return &p
+}
+
+// GetClashingFieldsHTTP returns the automatical filles fields
+func GetClashingFieldsHTTP() []string {
+	return []string{
+		log.FieldKeyTime, log.FieldKeyFunc,
+		log.FieldKeyMsg, log.FieldKeyFile, KeyCallStack,
+	}
 }

@@ -62,7 +62,23 @@ Differences to original `logrus.TextLogger`:
 
 ### HTTP problem handler
 
-It's a RFC7807 response builder, based on logrus and github.com/moogar0880/problems. This formatter mostly uses info from emperror/errors and works independently from the configured `logrus.Logger.Formatter`. It sould be the last at the end of `logrus.Entry` chain, before the logging call (for example: `.Info(...)`)  Example for using in func decorator:
+It's a RFC7807 response builder, based on logrus and github.com/moogar0880/problems. This formatter mostly uses info from emperror/errors and works independently from the configured `logrus.Logger.Formatter`. Here is a simple example:
+
+```go
+errorformatter.WriteHTTPProblem(w, statusCode, // HTTP error response
+  logger.WithError(err)).Error("USER MSG") // logging to the console
+```
+
+The place of calling `WriteHTTPProblem()` on the `logrus.Entry` chain is important, let's see below example:
+
+```go
+errorformatter.WriteHTTPProblem(w, statusCode,
+  logger.WithError(err).WithTime(ts)).WithField("status", statusCode).Error("USER MSG")
+```
+
+> Where the `ts` will be sent in the HTTP error response, but "status" won't be.
+
+Example for using in func decorator:
 
 ```go
 package errorformatter_tester
@@ -84,9 +100,8 @@ func trySampleHTTP() {
 	// this func decorator sets body, header and status, if response error is NOT nil
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		if statusCode, err := doRequest(w, r); err != nil { // calling worker func
-			errorformatter.WriteHTTPProblem( // sending HTTP error
-				w, logger.WithError(err), log.ErrorLevel, statusCode, // HTTP error parameters
-			).Log(log.ErrorLevel, "USER MSG") // logging to the console
+      errorformatter.WriteHTTPProblem(w, statusCode, // HTTP error response
+        logger.WithError(err)).Error("USER MSG") // logging to the console
 		}
 	}
 
@@ -123,7 +138,6 @@ application/problem+json
   "detail": "MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax",
   "details": {
     "error": "\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"",
-    "level": "\"error\"",
     "time": "\"2019-10-15T22:51:27+02:00\""
   }
 }
@@ -285,7 +299,6 @@ HTTP error body:
   "detail": "MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax",
   "details": {
     "error": "\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"",
-    "level": "\"error\"",
     "time": "\"2019-10-15T23:37:54+02:00\""
   }
 }
@@ -343,7 +356,6 @@ HTTP error body:
     "K5_map": "{\"1\":\"ONE\",\"2\":\"TWO\"}",
     "K5_struct": "{\"Text\":\"text\",\"Integer\":42,\"Bool\":true}",
     "error": "\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"",
-    "level": "\"error\"",
     "time": "\"2019-10-15T23:40:27+02:00\""
   }
 }
@@ -384,7 +396,6 @@ HTTP error body:
   "details": {
     "callstack": "[\"github.com/pgillich/errorformatter.newWithDetails() errorformatter.go:295\",\"github.com/pgillich/errorformatter.GenerateDeepErrors() errorformatter.go:271\",\"errorformatter_tester.tryErrorHTTP() test_formatter.go:55\",\"errorformatter_tester.TryErrorformatter() test_formatter.go:47\",\"cmd.testErrorformatter() errorformatter.go:115\",\"cmd.glob..func1() errorformatter.go:44\",\"github.com/spf13/cobra.(*Command).execute() command.go:830\",\"github.com/spf13/cobra.(*Command).ExecuteC() command.go:914\",\"github.com/spf13/cobra.(*Command).Execute() command.go:864\",\"cmd.Execute() zz_root.go:25\",\"main.main() main.go:8\",\"runtime.main() proc.go:203\",\"runtime.goexit() asm_amd64.s:1357\"]",
     "error": "\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"",
-    "level": "\"error\"",
     "time": "\"2019-10-15T23:42:14+02:00\""
   }
 }
@@ -463,7 +474,6 @@ HTTP error body:
   "detail": "MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax",
   "details": {
     "error": "\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"",
-    "level": "\"error\"",
     "time": "\"2019-10-15T23:44:14+02:00\""
   }
 }
@@ -503,7 +513,6 @@ HTTP error body:
   "detail": "MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax",
   "details": {
     "error": "\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"",
-    "level": "\"error\"",
     "time": "\"2019-10-15T23:46:36+02:00\""
   },
   "callstack": [
@@ -572,7 +581,6 @@ HTTP error body:
     "K5_map": "\"map[1:ONE 2:TWO]\"",
     "K5_struct": "\"{Text:text Integer:42 Bool:true hidden:hidden}\"",
     "error": "\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"",
-    "level": "\"error\"",
     "time": "\"2019-10-15T23:48:17+02:00\""
   }
 }
@@ -626,7 +634,6 @@ HTTP error body:
     "K5_map": "{\"1\":\"ONE\",\"2\":\"TWO\"}",
     "K5_struct": "{\"Text\":\"text\",\"Integer\":42,\"Bool\":true}",
     "error": "\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"",
-    "level": "\"error\"",
     "time": "\"2019-10-15T23:53:25+02:00\""
   }
 }
@@ -693,7 +700,6 @@ HTTP error body:
   "details": {
     "callstack": "[\"github.com/pgillich/errorformatter.newWithDetails() errorformatter.go:295\",\"github.com/pgillich/errorformatter.GenerateDeepErrors() errorformatter.go:271\",\"errorformatter_tester.tryErrorHTTP() test_formatter.go:55\",\"errorformatter_tester.TryErrorformatter() test_formatter.go:47\",\"cmd.testErrorformatter() errorformatter.go:115\",\"cmd.glob..func1() errorformatter.go:44\"]",
     "error": "\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"",
-    "level": "\"error\"",
     "time": "\"2019-10-16T00:04:56+02:00\""
   },
   "callstack": [
