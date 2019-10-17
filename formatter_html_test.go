@@ -1,4 +1,4 @@
-package errorformatter
+package errfmt
 
 import (
 	"fmt"
@@ -52,8 +52,8 @@ func TestLogrus_RenderHTTPProblem_CallStackNewLines(t *testing.T) {
     "time": "\"`+tsRFC3339+`\""
   },
   "callstack": [
-    "errorformatter.newWithDetails() errorformatter.go:0",
-    "errorformatter.GenerateDeepErrors() errorformatter.go:0",
+    "errfmt.newWithDetails() errfmt.go:0",
+    "errfmt.GenerateDeepErrors() errfmt.go:0",
     "`+funcName+`() formatter_html_test.go:0"
   ]
 }`, replaceCallLine(respText))

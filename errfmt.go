@@ -1,7 +1,7 @@
 /*
-	Package errorformatter is a Golang library for formatting logrus + emperror/errors messages
+	Package errfmt is a Golang library for formatting logrus + emperror/errors messages
 */
-package errorformatter
+package errfmt
 
 import (
 	"bytes"

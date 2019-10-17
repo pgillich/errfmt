@@ -1,3 +1,3 @@
-package errorformatter
+package errfmt
 
 type pkgPathMarker struct{}

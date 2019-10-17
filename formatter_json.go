@@ -1,4 +1,4 @@
-package errorformatter
+package errfmt
 
 import (
 	log "github.com/sirupsen/logrus"

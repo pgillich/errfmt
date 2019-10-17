@@ -1,6 +1,6 @@
-# errorformatter
+# errfmt
 
-`errorformatter` is a Golang library for formatting logrus + emperror/errors messages.
+`errfmt` is a Golang library for formatting logrus + emperror/errors messages.
 
 ## Introduction
 
@@ -12,7 +12,7 @@ The whole soulution has below components:
 * sirupsen/logrus: same logging library for printing log and error messages to the console (and log files)
 * juju/rfc/rfc5424: printing standard Syslog messages ([RFC5424](https://tools.ietf.org/html/rfc5424))
 * moogar0880/problems: building standard HTTP error responses ([RFC7807](https://tools.ietf.org/html/rfc7807))
-* pgillich/errorformatter: composing above components into a homogenous and configurable solution
+* pgillich/errfmt: composing above components into a homogenous and configurable solution
 * centralized log collector and parser (TODO)
 * centralized log processing, including GUI (TODO)
 
@@ -28,16 +28,16 @@ Here is the a simple usage example:
 
 ```go
 import (
-	"github.com/pgillich/errorformatter"
+	"github.com/pgillich/errfmt"
 	log "github.com/sirupsen/logrus"
 )
 
 func trySampleText() {
 	// register a trim prefix (optional)
-	errorformatter.AddSkipPackageFromStackTrace("github.com/pgillich/logtester")
+	errfmt.AddSkipPackageFromStackTrace("github.com/pgillich/logtester")
 
 	// build a new logrus.Logger, based on logrus.TextLogger
-	logger := errorformatter.NewTextLogger(log.InfoLevel, errorformatter.FlagNone, 0)
+	logger := errfmt.NewTextLogger(log.InfoLevel, errfmt.FlagNone, 0)
 
 	// Info log with key-value map
 	logger.WithFields(log.Fields{
@@ -48,7 +48,7 @@ func trySampleText() {
 }
 ```
 
-The output of above code, runing `./logtester errorformatter --testCase sampletext`:
+The output of above code, runing `./logtester errfmt --testCase sampletext`:
 
 ```log
 level=info time="2019-10-15T22:32:25+02:00" func=errorformatter_tester.trySampleText msg="USER MSG" file="sample_text.go:21" BOOL=true INT=42 STR=str
@@ -65,14 +65,14 @@ Differences to original `logrus.TextLogger`:
 It's a RFC7807 response builder, based on logrus and github.com/moogar0880/problems. This formatter mostly uses info from emperror/errors and works independently from the configured `logrus.Logger.Formatter`. Here is a simple example:
 
 ```go
-errorformatter.WriteHTTPProblem(w, statusCode, // HTTP error response
+errfmt.WriteHTTPProblem(w, statusCode, // HTTP error response
   logger.WithError(err)).Error("USER MSG") // logging to the console
 ```
 
 The place of calling `WriteHTTPProblem()` on the `logrus.Entry` chain is important, let's see below example:
 
 ```go
-errorformatter.WriteHTTPProblem(w, statusCode,
+errfmt.WriteHTTPProblem(w, statusCode,
   logger.WithError(err).WithTime(ts)).WithField("status", statusCode).Error("USER MSG")
 ```
 
@@ -86,21 +86,21 @@ package errorformatter_tester
 import (
 	"net/http"
 
-	"github.com/pgillich/errorformatter"
+	"github.com/pgillich/errfmt"
 	log "github.com/sirupsen/logrus"
 )
 
 func trySampleHTTP() {
 	// register a trim prefix (optional)
-	errorformatter.AddSkipPackageFromStackTrace("github.com/pgillich/logtester")
+	errfmt.AddSkipPackageFromStackTrace("github.com/pgillich/logtester")
 
 	// build a new logrus logger
-	logger := errorformatter.NewTextLogger(log.InfoLevel, errorformatter.FlagNone, 0)
+	logger := errfmt.NewTextLogger(log.InfoLevel, errfmt.FlagNone, 0)
 
 	// this func decorator sets body, header and status, if response error is NOT nil
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		if statusCode, err := doRequest(w, r); err != nil { // calling worker func
-      errorformatter.WriteHTTPProblem(w, statusCode, // HTTP error response
+      errfmt.WriteHTTPProblem(w, statusCode, // HTTP error response
         logger.WithError(err)).Error("USER MSG") // logging to the console
 		}
 	}
@@ -121,11 +121,11 @@ func doRequest(w http.ResponseWriter, r *http.Request) (int, error) {
   */
   
   // failed
-	return http.StatusPreconditionFailed, errorformatter.GenerateDeepErrors()
+	return http.StatusPreconditionFailed, errfmt.GenerateDeepErrors()
 }
 ```
 
-The output of above code, runing `./logtester errorformatter --testCase samplehttp`
+The output of above code, runing `./logtester errfmt --testCase samplehttp`
 
 ```log
 level=error time="2019-10-15T22:51:27+02:00" func=errorformatter_tester.trySampleHTTP.func1 error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="sample_http.go:26"
@@ -143,11 +143,11 @@ application/problem+json
 }
 ```
 
-The `errorformatter.WriteHTTPProblem()` func writes the HTTP error response. So, error logging into the console and sending HTTP error can be written into one line. For more specific use case, `errorformatter.ExtractHTTPProblem()` can be used.
+The `errfmt.WriteHTTPProblem()` func writes the HTTP error response. So, error logging into the console and sending HTTP error can be written into one line. For more specific use case, `errfmt.ExtractHTTPProblem()` can be used.
 
 ## Advanced error handling
 
-`errorformatter` supports below console formatters:
+`errfmt` supports below console formatters:
 
 Text formatter, a customized `logrus.TextFormatter`:
 
@@ -195,8 +195,8 @@ Where:
 Example for using `flags` and `callStackSkipLast`:
 
 ```go
-flags := errorformatter.FlagExtractDetails|errorformatter.FlagCallStackOnConsole|errorformatter.FlagPrintStructFieldNames
-logger := errorformatter.NewTextLogger(log.InfoLevel, flags, 2)
+flags := errfmt.FlagExtractDetails|errfmt.FlagCallStackOnConsole|errfmt.FlagPrintStructFieldNames
+logger := errfmt.NewTextLogger(log.InfoLevel, flags, 2)
 
 (...)
 
@@ -265,14 +265,14 @@ It's the baseline example. All below `flags` examples are compared to this.
 Example for the flags value:
 
 ```go
-flags :=  errorformatter.FlagNone
+flags :=  errfmt.FlagNone
 
-logger := errorformatter.NewTextLogger(log.InfoLevel, flags, 0)
+logger := errfmt.NewTextLogger(log.InfoLevel, flags, 0)
 
-logger := errorformatter.NewSyslogLogger(log.InfoLevel, flags, 0,
+logger := errfmt.NewSyslogLogger(log.InfoLevel, flags, 0,
     rfc5424.FacilityDaemon, rfc5424.Hostname{FQDN: "fqdn.host.com"}, "application", "PID", "")
 
-logger := errorformatter.NewJSONLogger(log.InfoLevel, flags, 0)
+logger := errfmt.NewJSONLogger(log.InfoLevel, flags, 0)
 ```
 
 Sample console outputs:
@@ -315,7 +315,7 @@ Details values in HTTP error message are marshalled as JSON.
 Example for the flags value:
 
 ```go
-flags := errorformatter.FlagExtractDetails
+flags := errfmt.FlagExtractDetails
 ```
 
 Sample console outputs:
@@ -368,21 +368,21 @@ HTTP error body:
 Example for the flags value:
 
 ```go
-flags := errorformatter.FlagCallStackInFields
+flags := errfmt.FlagCallStackInFields
 ```
 
 Sample console outputs:
 
 ```log
-level=error time="2019-10-15T23:43:08+02:00" func=errorformatter_tester.tryErrorHTTP error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_formatter.go:61" callstack="[github.com/pgillich/errorformatter.newWithDetails() errorformatter.go:295 github.com/pgillich/errorformatter.GenerateDeepErrors() errorformatter.go:271 errorformatter_tester.tryErrorHTTP() test_formatter.go:55 errorformatter_tester.TryErrorformatter() test_formatter.go:47 cmd.testErrorformatter() errorformatter.go:115 cmd.glob..func1() errorformatter.go:44 github.com/spf13/cobra.(*Command).execute() command.go:830 github.com/spf13/cobra.(*Command).ExecuteC() command.go:914 github.com/spf13/cobra.(*Command).Execute() command.go:864 cmd.Execute() zz_root.go:25 main.main() main.go:8 runtime.main() proc.go:203 runtime.goexit() asm_amd64.s:1357]"
+level=error time="2019-10-15T23:43:08+02:00" func=errorformatter_tester.tryErrorHTTP error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_formatter.go:61" callstack="[github.com/pgillich/errfmt.newWithDetails() errfmt.go:295 github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271 errorformatter_tester.tryErrorHTTP() test_formatter.go:55 errorformatter_tester.TryErrorformatter() test_formatter.go:47 cmd.testErrorformatter() errfmt.go:115 cmd.glob..func1() errfmt.go:44 github.com/spf13/cobra.(*Command).execute() command.go:830 github.com/spf13/cobra.(*Command).ExecuteC() command.go:914 github.com/spf13/cobra.(*Command).Execute() command.go:864 cmd.Execute() zz_root.go:25 main.main() main.go:8 runtime.main() proc.go:203 runtime.goexit() asm_amd64.s:1357]"
 ```
 
 ```log
-<27>1 2019-10-15T23:42:14.739382013+02:00 fqdn.host.com application PID DETAILS_CALLS_MSG [details level="\"error\"" func="\"errorformatter_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\""][calls callstack="[\"github.com/pgillich/errorformatter.newWithDetails() errorformatter.go:295\",\"github.com/pgillich/errorformatter.GenerateDeepErrors() errorformatter.go:271\",\"errorformatter_tester.tryErrorHTTP() test_formatter.go:55\",\"errorformatter_tester.TryErrorformatter() test_formatter.go:47\",\"cmd.testErrorformatter() errorformatter.go:115\",\"cmd.glob..func1() errorformatter.go:44\",\"github.com/spf13/cobra.(*Command).execute() command.go:830\",\"github.com/spf13/cobra.(*Command).ExecuteC() command.go:914\",\"github.com/spf13/cobra.(*Command).Execute() command.go:864\",\"cmd.Execute() zz_root.go:25\",\"main.main() main.go:8\",\"runtime.main() proc.go:203\",\"runtime.goexit() asm_amd64.s:1357\"\]"] USER MSG
+<27>1 2019-10-15T23:42:14.739382013+02:00 fqdn.host.com application PID DETAILS_CALLS_MSG [details level="\"error\"" func="\"errorformatter_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\""][calls callstack="[\"github.com/pgillich/errfmt.newWithDetails() errfmt.go:295\",\"github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271\",\"errorformatter_tester.tryErrorHTTP() test_formatter.go:55\",\"errorformatter_tester.TryErrorformatter() test_formatter.go:47\",\"cmd.testErrorformatter() errfmt.go:115\",\"cmd.glob..func1() errfmt.go:44\",\"github.com/spf13/cobra.(*Command).execute() command.go:830\",\"github.com/spf13/cobra.(*Command).ExecuteC() command.go:914\",\"github.com/spf13/cobra.(*Command).Execute() command.go:864\",\"cmd.Execute() zz_root.go:25\",\"main.main() main.go:8\",\"runtime.main() proc.go:203\",\"runtime.goexit() asm_amd64.s:1357\"\]"] USER MSG
 ```
 
 ```json
-{"callstack":["github.com/pgillich/errorformatter.newWithDetails() errorformatter.go:295","github.com/pgillich/errorformatter.GenerateDeepErrors() errorformatter.go:271","errorformatter_tester.tryErrorHTTP() test_formatter.go:55","errorformatter_tester.TryErrorformatter() test_formatter.go:47","cmd.testErrorformatter() errorformatter.go:116","cmd.glob..func1() errorformatter.go:44","github.com/spf13/cobra.(*Command).execute() command.go:830","github.com/spf13/cobra.(*Command).ExecuteC() command.go:914","github.com/spf13/cobra.(*Command).Execute() command.go:864","cmd.Execute() zz_root.go:25","main.main() main.go:8","runtime.main() proc.go:203","runtime.goexit() asm_amd64.s:1357"],"error":"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","file":"test_formatter.go:61","func":"errorformatter_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time":"2019-10-16T21:47:03+02:00"}
+{"callstack":["github.com/pgillich/errfmt.newWithDetails() errfmt.go:295","github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271","errorformatter_tester.tryErrorHTTP() test_formatter.go:55","errorformatter_tester.TryErrorformatter() test_formatter.go:47","cmd.testErrorformatter() errfmt.go:116","cmd.glob..func1() errfmt.go:44","github.com/spf13/cobra.(*Command).execute() command.go:830","github.com/spf13/cobra.(*Command).ExecuteC() command.go:914","github.com/spf13/cobra.(*Command).Execute() command.go:864","cmd.Execute() zz_root.go:25","main.main() main.go:8","runtime.main() proc.go:203","runtime.goexit() asm_amd64.s:1357"],"error":"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","file":"test_formatter.go:61","func":"errorformatter_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time":"2019-10-16T21:47:03+02:00"}
 ```
 
 HTTP error body:
@@ -394,7 +394,7 @@ HTTP error body:
   "status": 412,
   "detail": "MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax",
   "details": {
-    "callstack": "[\"github.com/pgillich/errorformatter.newWithDetails() errorformatter.go:295\",\"github.com/pgillich/errorformatter.GenerateDeepErrors() errorformatter.go:271\",\"errorformatter_tester.tryErrorHTTP() test_formatter.go:55\",\"errorformatter_tester.TryErrorformatter() test_formatter.go:47\",\"cmd.testErrorformatter() errorformatter.go:115\",\"cmd.glob..func1() errorformatter.go:44\",\"github.com/spf13/cobra.(*Command).execute() command.go:830\",\"github.com/spf13/cobra.(*Command).ExecuteC() command.go:914\",\"github.com/spf13/cobra.(*Command).Execute() command.go:864\",\"cmd.Execute() zz_root.go:25\",\"main.main() main.go:8\",\"runtime.main() proc.go:203\",\"runtime.goexit() asm_amd64.s:1357\"]",
+    "callstack": "[\"github.com/pgillich/errfmt.newWithDetails() errfmt.go:295\",\"github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271\",\"errorformatter_tester.tryErrorHTTP() test_formatter.go:55\",\"errorformatter_tester.TryErrorformatter() test_formatter.go:47\",\"cmd.testErrorformatter() errfmt.go:115\",\"cmd.glob..func1() errfmt.go:44\",\"github.com/spf13/cobra.(*Command).execute() command.go:830\",\"github.com/spf13/cobra.(*Command).ExecuteC() command.go:914\",\"github.com/spf13/cobra.(*Command).Execute() command.go:864\",\"cmd.Execute() zz_root.go:25\",\"main.main() main.go:8\",\"runtime.main() proc.go:203\",\"runtime.goexit() asm_amd64.s:1357\"]",
     "error": "\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"",
     "time": "\"2019-10-15T23:42:14+02:00\""
   }
@@ -408,19 +408,19 @@ HTTP error body:
 Example for the flags value:
 
 ```go
-flags := errorformatter.FlagCallStackOnConsole
+flags := errfmt.FlagCallStackOnConsole
 ```
 
 Sample console outputs:
 
 ```log
 level=error time="2019-10-15T23:44:14+02:00" func=errorformatter_tester.tryErrorHTTP error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_formatter.go:61"
-	github.com/pgillich/errorformatter.newWithDetails() errorformatter.go:295
-	github.com/pgillich/errorformatter.GenerateDeepErrors() errorformatter.go:271
+	github.com/pgillich/errfmt.newWithDetails() errfmt.go:295
+	github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271
 	errorformatter_tester.tryErrorHTTP() test_formatter.go:55
 	errorformatter_tester.TryErrorformatter() test_formatter.go:47
-	cmd.testErrorformatter() errorformatter.go:115
-	cmd.glob..func1() errorformatter.go:44
+	cmd.testErrorformatter() errfmt.go:115
+	cmd.glob..func1() errfmt.go:44
 	github.com/spf13/cobra.(*Command).execute() command.go:830
 	github.com/spf13/cobra.(*Command).ExecuteC() command.go:914
 	github.com/spf13/cobra.(*Command).Execute() command.go:864
@@ -432,12 +432,12 @@ level=error time="2019-10-15T23:44:14+02:00" func=errorformatter_tester.tryError
 
 ```log
 <27>1 2019-10-15T23:45:21.164037629+02:00 fqdn.host.com application PID DETAILS_MSG [details level="\"error\"" func="\"errorformatter_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\""] USER MSG
-	github.com/pgillich/errorformatter.newWithDetails() errorformatter.go:295
-	github.com/pgillich/errorformatter.GenerateDeepErrors() errorformatter.go:271
+	github.com/pgillich/errfmt.newWithDetails() errfmt.go:295
+	github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271
 	errorformatter_tester.tryErrorHTTP() test_formatter.go:55
 	errorformatter_tester.TryErrorformatter() test_formatter.go:47
-	cmd.testErrorformatter() errorformatter.go:115
-	cmd.glob..func1() errorformatter.go:44
+	cmd.testErrorformatter() errfmt.go:115
+	cmd.glob..func1() errfmt.go:44
 	github.com/spf13/cobra.(*Command).execute() command.go:830
 	github.com/spf13/cobra.(*Command).ExecuteC() command.go:914
 	github.com/spf13/cobra.(*Command).Execute() command.go:864
@@ -449,12 +449,12 @@ level=error time="2019-10-15T23:44:14+02:00" func=errorformatter_tester.tryError
 
 ```json
 {"error":"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","file":"test_formatter.go:61","func":"errorformatter_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time":"2019-10-16T21:48:59+02:00"}
-	github.com/pgillich/errorformatter.newWithDetails() errorformatter.go:295
-	github.com/pgillich/errorformatter.GenerateDeepErrors() errorformatter.go:271
+	github.com/pgillich/errfmt.newWithDetails() errfmt.go:295
+	github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271
 	errorformatter_tester.tryErrorHTTP() test_formatter.go:55
 	errorformatter_tester.TryErrorformatter() test_formatter.go:47
-	cmd.testErrorformatter() errorformatter.go:116
-	cmd.glob..func1() errorformatter.go:44
+	cmd.testErrorformatter() errfmt.go:116
+	cmd.glob..func1() errfmt.go:44
 	github.com/spf13/cobra.(*Command).execute() command.go:830
 	github.com/spf13/cobra.(*Command).ExecuteC() command.go:914
 	github.com/spf13/cobra.(*Command).Execute() command.go:864
@@ -486,7 +486,7 @@ HTTP error body:
 Example for the flags value:
 
 ```go
-flags := errorformatter.FlagCallStackInHTTPProblem
+flags := errfmt.FlagCallStackInHTTPProblem
 ```
 
 Sample console outputs:
@@ -516,12 +516,12 @@ HTTP error body:
     "time": "\"2019-10-15T23:46:36+02:00\""
   },
   "callstack": [
-    "github.com/pgillich/errorformatter.newWithDetails() errorformatter.go:295",
-    "github.com/pgillich/errorformatter.GenerateDeepErrors() errorformatter.go:271",
+    "github.com/pgillich/errfmt.newWithDetails() errfmt.go:295",
+    "github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271",
     "errorformatter_tester.tryErrorHTTP() test_formatter.go:55",
     "errorformatter_tester.TryErrorformatter() test_formatter.go:47",
-    "cmd.testErrorformatter() errorformatter.go:115",
-    "cmd.glob..func1() errorformatter.go:44",
+    "cmd.testErrorformatter() errfmt.go:115",
+    "cmd.glob..func1() errfmt.go:44",
     "github.com/spf13/cobra.(*Command).execute() command.go:830",
     "github.com/spf13/cobra.(*Command).ExecuteC() command.go:914",
     "github.com/spf13/cobra.(*Command).Execute() command.go:864",
@@ -540,7 +540,7 @@ HTTP error body:
 Example for the flags value:
 
 ```go
-flags := errorformatter.FlagPrintStructFieldNames
+flags := errfmt.FlagPrintStructFieldNames
 ```
 
 Sample console outputs:
@@ -593,7 +593,7 @@ HTTP error body:
 Example for the flags value:
 
 ```go
-flags := errorformatter.FlagExtractDetails|errorformatter.FlagTrimJSONDquote
+flags := errfmt.FlagExtractDetails|errfmt.FlagTrimJSONDquote
 ```
 
 Sample console outputs:
@@ -646,47 +646,47 @@ HTTP error body:
 Example for the flags and `callStackSkipLast` value:
 
 ```go
-flags := errorformatter.FlagCallStackInFields|errorformatter.FlagCallStackOnConsole|errorformatter.FlagCallStackInHTTPProblem
+flags := errfmt.FlagCallStackInFields|errfmt.FlagCallStackOnConsole|errfmt.FlagCallStackInHTTPProblem
 callStackSkipLast := 7
 
-logger := errorformatter.NewTextLogger(log.InfoLevel, flags, callStackSkipLast)
+logger := errfmt.NewTextLogger(log.InfoLevel, flags, callStackSkipLast)
 
-logger := errorformatter.NewSyslogLogger(log.InfoLevel, flags, callStackSkipLast,
+logger := errfmt.NewSyslogLogger(log.InfoLevel, flags, callStackSkipLast,
     rfc5424.FacilityDaemon, rfc5424.Hostname{FQDN: "fqdn.host.com"}, "application", "PID", "")
 
-logger := errorformatter.NewJSONLogger(log.InfoLevel, flags, callStackSkipLast)
+logger := errfmt.NewJSONLogger(log.InfoLevel, flags, callStackSkipLast)
 ```
 
 Sample console outputs:
 
 ```log
-level=error time="2019-10-16T00:04:56+02:00" func=errorformatter_tester.tryErrorHTTP error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_formatter.go:61" callstack="[github.com/pgillich/errorformatter.newWithDetails() errorformatter.go:295 github.com/pgillich/errorformatter.GenerateDeepErrors() errorformatter.go:271 errorformatter_tester.tryErrorHTTP() test_formatter.go:55 errorformatter_tester.TryErrorformatter() test_formatter.go:47 cmd.testErrorformatter() errorformatter.go:115 cmd.glob..func1() errorformatter.go:44]"
-	github.com/pgillich/errorformatter.newWithDetails() errorformatter.go:295
-	github.com/pgillich/errorformatter.GenerateDeepErrors() errorformatter.go:271
+level=error time="2019-10-16T00:04:56+02:00" func=errorformatter_tester.tryErrorHTTP error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_formatter.go:61" callstack="[github.com/pgillich/errfmt.newWithDetails() errfmt.go:295 github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271 errorformatter_tester.tryErrorHTTP() test_formatter.go:55 errorformatter_tester.TryErrorformatter() test_formatter.go:47 cmd.testErrorformatter() errfmt.go:115 cmd.glob..func1() errfmt.go:44]"
+	github.com/pgillich/errfmt.newWithDetails() errfmt.go:295
+	github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271
 	errorformatter_tester.tryErrorHTTP() test_formatter.go:55
 	errorformatter_tester.TryErrorformatter() test_formatter.go:47
-	cmd.testErrorformatter() errorformatter.go:115
-	cmd.glob..func1() errorformatter.go:44
+	cmd.testErrorformatter() errfmt.go:115
+	cmd.glob..func1() errfmt.go:44
 ```
 
 ```log
-<27>1 2019-10-16T00:06:08.01630693+02:00 fqdn.host.com application PID DETAILS_CALLS_MSG [details level="\"error\"" func="\"errorformatter_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\""][calls callstack="[\"github.com/pgillich/errorformatter.newWithDetails() errorformatter.go:295\",\"github.com/pgillich/errorformatter.GenerateDeepErrors() errorformatter.go:271\",\"errorformatter_tester.tryErrorHTTP() test_formatter.go:55\",\"errorformatter_tester.TryErrorformatter() test_formatter.go:47\",\"cmd.testErrorformatter() errorformatter.go:115\",\"cmd.glob..func1() errorformatter.go:44\"\]"] USER MSG
-	github.com/pgillich/errorformatter.newWithDetails() errorformatter.go:295
-	github.com/pgillich/errorformatter.GenerateDeepErrors() errorformatter.go:271
+<27>1 2019-10-16T00:06:08.01630693+02:00 fqdn.host.com application PID DETAILS_CALLS_MSG [details level="\"error\"" func="\"errorformatter_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\""][calls callstack="[\"github.com/pgillich/errfmt.newWithDetails() errfmt.go:295\",\"github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271\",\"errorformatter_tester.tryErrorHTTP() test_formatter.go:55\",\"errorformatter_tester.TryErrorformatter() test_formatter.go:47\",\"cmd.testErrorformatter() errfmt.go:115\",\"cmd.glob..func1() errfmt.go:44\"\]"] USER MSG
+	github.com/pgillich/errfmt.newWithDetails() errfmt.go:295
+	github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271
 	errorformatter_tester.tryErrorHTTP() test_formatter.go:55
 	errorformatter_tester.TryErrorformatter() test_formatter.go:47
-	cmd.testErrorformatter() errorformatter.go:115
-	cmd.glob..func1() errorformatter.go:44
+	cmd.testErrorformatter() errfmt.go:115
+	cmd.glob..func1() errfmt.go:44
 ```
 
 ```json
-{"callstack":["github.com/pgillich/errorformatter.newWithDetails() errorformatter.go:295","github.com/pgillich/errorformatter.GenerateDeepErrors() errorformatter.go:271","errorformatter_tester.tryErrorHTTP() test_formatter.go:55","errorformatter_tester.TryErrorformatter() test_formatter.go:47","cmd.testErrorformatter() errorformatter.go:115","cmd.glob..func1() errorformatter.go:44"],"error":"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","file":"test_formatter.go:61","func":"errorformatter_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time":"2019-10-16T00:06:30+02:00"}
-	github.com/pgillich/errorformatter.newWithDetails() errorformatter.go:295
-	github.com/pgillich/errorformatter.GenerateDeepErrors() errorformatter.go:271
+{"callstack":["github.com/pgillich/errfmt.newWithDetails() errfmt.go:295","github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271","errorformatter_tester.tryErrorHTTP() test_formatter.go:55","errorformatter_tester.TryErrorformatter() test_formatter.go:47","cmd.testErrorformatter() errfmt.go:115","cmd.glob..func1() errfmt.go:44"],"error":"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","file":"test_formatter.go:61","func":"errorformatter_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time":"2019-10-16T00:06:30+02:00"}
+	github.com/pgillich/errfmt.newWithDetails() errfmt.go:295
+	github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271
 	errorformatter_tester.tryErrorHTTP() test_formatter.go:55
 	errorformatter_tester.TryErrorformatter() test_formatter.go:47
-	cmd.testErrorformatter() errorformatter.go:115
-	cmd.glob..func1() errorformatter.go:44
+	cmd.testErrorformatter() errfmt.go:115
+	cmd.glob..func1() errfmt.go:44
 ```
 
 HTTP error body:
@@ -698,17 +698,17 @@ HTTP error body:
   "status": 412,
   "detail": "MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax",
   "details": {
-    "callstack": "[\"github.com/pgillich/errorformatter.newWithDetails() errorformatter.go:295\",\"github.com/pgillich/errorformatter.GenerateDeepErrors() errorformatter.go:271\",\"errorformatter_tester.tryErrorHTTP() test_formatter.go:55\",\"errorformatter_tester.TryErrorformatter() test_formatter.go:47\",\"cmd.testErrorformatter() errorformatter.go:115\",\"cmd.glob..func1() errorformatter.go:44\"]",
+    "callstack": "[\"github.com/pgillich/errfmt.newWithDetails() errfmt.go:295\",\"github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271\",\"errorformatter_tester.tryErrorHTTP() test_formatter.go:55\",\"errorformatter_tester.TryErrorformatter() test_formatter.go:47\",\"cmd.testErrorformatter() errfmt.go:115\",\"cmd.glob..func1() errfmt.go:44\"]",
     "error": "\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"",
     "time": "\"2019-10-16T00:04:56+02:00\""
   },
   "callstack": [
-    "github.com/pgillich/errorformatter.newWithDetails() errorformatter.go:295",
-    "github.com/pgillich/errorformatter.GenerateDeepErrors() errorformatter.go:271",
+    "github.com/pgillich/errfmt.newWithDetails() errfmt.go:295",
+    "github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271",
     "errorformatter_tester.tryErrorHTTP() test_formatter.go:55",
     "errorformatter_tester.TryErrorformatter() test_formatter.go:47",
-    "cmd.testErrorformatter() errorformatter.go:115",
-    "cmd.glob..func1() errorformatter.go:44"
+    "cmd.testErrorformatter() errfmt.go:115",
+    "cmd.glob..func1() errfmt.go:44"
   ]
 }
 ```

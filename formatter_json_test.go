@@ -1,4 +1,4 @@
-package errorformatter
+package errfmt
 
 import (
 	"bytes"
@@ -117,8 +117,8 @@ func TestLogrus_JSONLogger_CallStackInFields(t *testing.T) {
     "Bool": true
   },
   "callstack": [
-    "errorformatter.newWithDetails() errorformatter.go:0",
-    "errorformatter.GenerateDeepErrors() errorformatter.go:0",
+    "errfmt.newWithDetails() errfmt.go:0",
+    "errfmt.GenerateDeepErrors() errfmt.go:0",
     "`+funcName+`() formatter_json_test.go:0"
   ],
   "error": "MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax",
