@@ -69,6 +69,8 @@ errfmt.WriteHTTPProblem(w, statusCode, // HTTP error response
   logger.WithError(err)).Error("USER MSG") // logging to the console
 ```
 
+The `errfmt.WriteHTTPProblem()` func writes the HTTP error response (header, status, body). So, error logging into the console and sending HTTP error can be written into one line. For more specific use case, `errfmt.ExtractHTTPProblem()` can be used.
+
 The place of calling `WriteHTTPProblem()` on the `logrus.Entry` chain is important, let's see below example:
 
 ```go
@@ -76,7 +78,7 @@ errfmt.WriteHTTPProblem(w, statusCode,
   logger.WithError(err).WithTime(ts)).WithField("status", statusCode).Error("USER MSG")
 ```
 
-> Where the `ts` will be sent in the HTTP error response, but "status" won't be.
+> Where the `ts` will be sent in the HTTP error response, but `status` won't be.
 
 Example for using in func decorator:
 
@@ -142,8 +144,6 @@ application/problem+json
   }
 }
 ```
-
-The `errfmt.WriteHTTPProblem()` func writes the HTTP error response. So, error logging into the console and sending HTTP error can be written into one line. For more specific use case, `errfmt.ExtractHTTPProblem()` can be used.
 
 ## Advanced error handling
 
