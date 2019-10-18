@@ -51,7 +51,8 @@ func trySampleText() {
 The output of above code, runing `./logtester errfmt --testCase sampletext`:
 
 ```log
-level=info time="2019-10-15T22:32:25+02:00" func=errfmt_tester.trySampleText msg="USER MSG" file="sample_text.go:21" BOOL=true INT=42 STR=str
+level=info time="2019-10-15T22:32:25+02:00" func=errfmt_tester.trySampleText msg="USER MSG" file="sa
+mple_text.go:21" BOOL=true INT=42 STR=str
 ```
 
 Differences to original `logrus.TextLogger`:
@@ -60,12 +61,75 @@ Differences to original `logrus.TextLogger`:
 * `logrus.Logger.ReportCaller` is true by default
 * Package prefix trimmed from the func name and file path
 
+## Advanced error handling
+
+`errfmt` supports below console formatters:
+
+Text formatter, a customized `logrus.TextFormatter`:
+
+```go
+func NewTextLogger(level log.Level, flags int, callStackSkipLast int,
+) *log.Logger
+```
+
+Syslog formatter, using Logrus and <https://godoc.org/github.com/juju/rfc/rfc5424>:
+
+```go
+func NewSyslogLogger(level log.Level, flags int, callStackSkipLast int,
+	facility rfc5424.Facility, hostname rfc5424.Hostname, appName string,
+	procID string, msgID string,
+) *log.Logger
+```
+
+Customized `logrus.JSONFormatter`:
+
+```go
+func NewJSONLogger(level log.Level, flags int, callStackSkipLast int,
+) *log.Logger
+```
+
+> Related pull request: allow disabling new line appending for json_formatter <https://github.com/sirupsen/logrus/pull/674>
+
+Where:
+
+* `level`: the logrus.Level of the logger
+* `flags`: flags for advanced `logrus.Logger.Formatter` implementations
+  * `FlagNone`: no any flag is active
+  * `FlagExtractDetails`: extracts errors.Details to logrus.Fields
+  * `FlagCallStackInFields`: extracts errors.StackTrace() to logrus.Field "callstack"
+  * `FlagCallStackOnConsole`: extracts errors.StackTrace() to console
+  * `FlagCallStackInHTTPProblem`: extracts errors.StackTrace() to HTTPProblem
+  * `FlagPrintStructFieldNames`: renders non-scalar Details values are by `"%+v"`, instead of `"%v"`
+  * `FlagTrimJSONDquote`: trims the leading and trailing `"` of JSON-formatted values
+* `callStackSkipLast`: skipping last lines from the call stack
+* `facility`: Syslog Facility
+* `hostname`: Syslog HOSTNAME field
+* `appName`: Syslog APP-NAME field
+* `procID`: Syslog PROCID field
+* `msgID`: Syslog MSGID field
+
+Example for using `flags` and `callStackSkipLast`:
+
+```go
+flags := errfmt.FlagExtractDetails|errfmt.FlagCallStackOnConsole|errfmt.FlagPrintStructFieldNames
+callStackSkipLast := 2
+logger := errfmt.NewTextLogger(log.InfoLevel, flags, callStackSkipLast)
+
+(...)
+
+logger.WithError(err).Log(log.ErrorLevel, "USER MSG")
+
+logger.WithError(err).Error("USER MSG")
+```
+
+In order to print error related information (including call stack), the `logrus.Logger.WithError(error)` or equivalent must be called on the logger.
+
 ### HTTP problem handler
 
 It's a RFC7807 response builder, based on logrus and github.com/moogar0880/problems. This formatter mostly uses info from emperror/errors and works independently from the configured `logrus.Logger.Formatter`. Here is a simple example:
 
 ```go
-errfmt.WriteHTTPProblem(w, statusCode, // HTTP error response
+errfmt.WriteHTTPProblem(w, statusCode,     // HTTP error response
   logger.WithError(err)).Error("USER MSG") // logging to the console
 ```
 
@@ -102,8 +166,8 @@ func trySampleHTTP() {
 	// this func decorator sets body, header and status, if response error is NOT nil
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		if statusCode, err := doRequest(w, r); err != nil { // calling worker func
-      errfmt.WriteHTTPProblem(w, statusCode, // HTTP error response
-        logger.WithError(err)).Error("USER MSG") // logging to the console
+			errfmt.WriteHTTPProblem(w, statusCode,            // HTTP error response
+				logger.WithError(err)).Error("USER MSG")        // logging to the console
 		}
 	}
 
@@ -130,7 +194,9 @@ func doRequest(w http.ResponseWriter, r *http.Request) (int, error) {
 The output of above code, runing `./logtester errfmt --testCase samplehttp`
 
 ```log
-level=error time="2019-10-15T22:51:27+02:00" func=errfmt_tester.trySampleHTTP.func1 error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="sample_http.go:26"
+level=error time="2019-10-15T22:51:27+02:00" func=errfmt_tester.trySampleHTTP.func1 error="MESSAGE 4
+: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="sa
+mple_http.go:26"
 412
 application/problem+json
 {
@@ -144,68 +210,6 @@ application/problem+json
   }
 }
 ```
-
-## Advanced error handling
-
-`errfmt` supports below console formatters:
-
-Text formatter, a customized `logrus.TextFormatter`:
-
-```go
-func NewTextLogger(level log.Level, flags int, callStackSkipLast int,
-) *log.Logger
-```
-
-Syslog formatter, using Logrus and <https://godoc.org/github.com/juju/rfc/rfc5424>:
-
-```go
-func NewSyslogLogger(level log.Level, flags int, callStackSkipLast int,
-	facility rfc5424.Facility, hostname rfc5424.Hostname, appName string,
-	procID string, msgID string,
-) *log.Logger
-```
-
-A customized `logrus.JSONFormatter`:
-
-```go
-func NewJSONLogger(level log.Level, flags int, callStackSkipLast int,
-) *log.Logger
-```
-
-> Related pull request: allow disabling new line appending for json_formatter <https://github.com/sirupsen/logrus/pull/674>
-
-Where:
-
-* `level`: the logrus.Level of the logger
-* `flags`: error formatting flags
-  * `FlagNone`: no any flag is active
-  * `FlagExtractDetails`: extracts errors.Details to logrus.Fields
-  * `FlagCallStackInFields`: extracts errors.StackTrace() to logrus.Field "callstack"
-  * `FlagCallStackOnConsole`: extracts errors.StackTrace() to console
-  * `FlagCallStackInHTTPProblem`: extracts errors.StackTrace() to HTTPProblem
-  * `FlagPrintStructFieldNames`: renders non-scalar Details values are by `"%+v"`, instead of `"%v"`
-  * `FlagTrimJSONDquote`: trims the leading and trailing `"` of JSON-formatted values
-* `callStackSkipLast`: skipping last lines from the call stack
-* `facility`: Syslog Facility
-* `hostname`: Syslog HOSTNAME field
-* `appName`: Syslog APP-NAME field
-* `procID`: Syslog PROCID field
-* `msgID`: Syslog MSGID field
-
-Example for using `flags` and `callStackSkipLast`:
-
-```go
-flags := errfmt.FlagExtractDetails|errfmt.FlagCallStackOnConsole|errfmt.FlagPrintStructFieldNames
-logger := errfmt.NewTextLogger(log.InfoLevel, flags, 2)
-
-(...)
-
-logger.WithError(err).Log(log.ErrorLevel, "USER MSG")
-
-logger.WithError(err).Error("USER MSG")
-```
-
-In order to print error related information (including call stack), the `logrus.Logger.WithError(error)` or equivalent must be called on the logger.
 
 ## Format flags
 
@@ -278,15 +282,21 @@ logger := errfmt.NewJSONLogger(log.InfoLevel, flags, 0)
 Sample console outputs:
 
 ```log
-level=error time="2019-10-15T23:37:54+02:00" func=errfmt_tester.tryErrorHTTP error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_formatter.go:61"
+level=error time="2019-10-15T23:37:54+02:00" func=errfmt_tester.tryErrorHTTP error="MESSAGE 4: MESSA
+GE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_form
+atter.go:61"
 ```
 
 ```log
-<27>1 2019-10-15T23:39:33.303198568+02:00 fqdn.host.com application PID DETAILS_MSG [details level="\"error\"" func="\"errfmt_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\""] USER MSG
+<27>1 2019-10-15T23:39:33.303198568+02:00 fqdn.host.com application PID DETAILS_MSG [details level="
+\"error\"" func="\"errfmt_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.A
+toi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\""] USER MSG
 ```
 
 ```json
-{"error":"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","file":"test_formatter.go:61","func":"errfmt_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time":"2019-10-16T21:13:18+02:00"}
+{"error":"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","fil
+e":"test_formatter.go:61","func":"errfmt_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time
+":"2019-10-16T21:13:18+02:00"}
 ```
 
 HTTP error body:
@@ -321,15 +331,30 @@ flags := errfmt.FlagExtractDetails
 Sample console outputs:
 
 ```log
-level=error time="2019-10-15T23:40:27+02:00" func=errfmt_tester.tryErrorHTTP error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_formatter.go:61" K0_1=V0_1 K0_2=V0_2 K1_1=V1_1 K1_2=V1_2 K3 2="V3 space" K3"5="V3\"doublequote" K3%6="V3%percent" K3:3="V3:column" K3;3="V3;semicolumn" K3=1="V3=equal" K5_bool=true K5_int=12 K5_map="map[1:ONE 2:TWO]" K5_struct="{text 42 true hidden}"
+level=error time="2019-10-15T23:40:27+02:00" func=errfmt_tester.tryErrorHTTP error="MESSAGE 4: MESSA
+GE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_form
+atter.go:61" K0_1=V0_1 K0_2=V0_2 K1_1=V1_1 K1_2=V1_2 K3 2="V3 space" K3"5="V3\"doublequote" K3%6="V3
+%percent" K3:3="V3:column" K3;3="V3;semicolumn" K3=1="V3=equal" K5_bool=true K5_int=12 K5_map="map[1
+:ONE 2:TWO]" K5_struct="{text 42 true hidden}"
 ```
 
 ```log
-<27>1 2019-10-15T23:41:20.585905377+02:00 fqdn.host.com application PID DETAILS_MSG [details level="\"error\"" func="\"errfmt_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\"" K0_1="\"V0_1\"" K0_2="\"V0_2\"" K1_1="\"V1_1\"" K1_2="\"V1_2\"" K3_2="\"V3 space\"" K3_5="\"V3\\\"doublequote\"" K3%6="\"V3%percent\"" K3:3="\"V3:column\"" K3;3="\"V3;semicolumn\"" K3_1="\"V3=equal\"" K5_bool="true" K5_int="12" K5_map="{\"1\":\"ONE\",\"2\":\"TWO\"}" K5_struct="{\"Text\":\"text\",\"Integer\":42,\"Bool\":true}"] USER MSG
+<27>1 2019-10-15T23:41:20.585905377+02:00 fqdn.host.com application PID DETAILS_MSG [details level="
+\"error\"" func="\"errfmt_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.A
+toi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\"" K0_1="\"V0_1\"" K0
+_2="\"V0_2\"" K1_1="\"V1_1\"" K1_2="\"V1_2\"" K3_2="\"V3 space\"" K3_5="\"V3\\\"doublequote\"" K3%6=
+"\"V3%percent\"" K3:3="\"V3:column\"" K3;3="\"V3;semicolumn\"" K3_1="\"V3=equal\"" K5_bool="true" K5
+_int="12" K5_map="{\"1\":\"ONE\",\"2\":\"TWO\"}" K5_struct="{\"Text\":\"text\",\"Integer\":42,\"Bool
+\":true}"] USER MSG
 ```
 
 ```json
-{"K0_1":"V0_1","K0_2":"V0_2","K1_1":"V1_1","K1_2":"V1_2","K3 2":"V3 space","K3\"5":"V3\"doublequote","K3%6":"V3%percent","K3:3":"V3:column","K3;3":"V3;semicolumn","K3=1":"V3=equal","K5_bool":true,"K5_int":12,"K5_map":{"1":"ONE","2":"TWO"},"K5_struct":{"Text":"text","Integer":42,"Bool":true},"error":"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","file":"test_formatter.go:61","func":"errfmt_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time":"2019-10-16T21:23:33+02:00"}
+{"K0_1":"V0_1","K0_2":"V0_2","K1_1":"V1_1","K1_2":"V1_2","K3 2":"V3 space","K3\"5":"V3\"doublequote"
+,"K3%6":"V3%percent","K3:3":"V3:column","K3;3":"V3;semicolumn","K3=1":"V3=equal","K5_bool":true,"K5_
+int":12,"K5_map":{"1":"ONE","2":"TWO"},"K5_struct":{"Text":"text","Integer":42,"Bool":true},"error":
+"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","file":"test_
+formatter.go:61","func":"errfmt_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time":"2019-1
+0-16T21:23:33+02:00"}
 ```
 
 HTTP error body:
@@ -374,15 +399,40 @@ flags := errfmt.FlagCallStackInFields
 Sample console outputs:
 
 ```log
-level=error time="2019-10-15T23:43:08+02:00" func=errfmt_tester.tryErrorHTTP error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_formatter.go:61" callstack="[github.com/pgillich/errfmt.newWithDetails() errfmt.go:295 github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271 errfmt_tester.tryErrorHTTP() test_formatter.go:55 errfmt_tester.TryErrorformatter() test_formatter.go:47 cmd.testErrorformatter() errfmt.go:115 cmd.glob..func1() errfmt.go:44 github.com/spf13/cobra.(*Command).execute() command.go:830 github.com/spf13/cobra.(*Command).ExecuteC() command.go:914 github.com/spf13/cobra.(*Command).Execute() command.go:864 cmd.Execute() zz_root.go:25 main.main() main.go:8 runtime.main() proc.go:203 runtime.goexit() asm_amd64.s:1357]"
+level=error time="2019-10-15T23:43:08+02:00" func=errfmt_tester.tryErrorHTTP error="MESSAGE 4: MESSA
+GE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_form
+atter.go:61" callstack="[github.com/pgillich/errfmt.newWithDetails() errfmt.go:295 github.com/pgilli
+h/errfmt.GenerateDeepErrors() errfmt.go:271 errfmt_tester.tryErrorHTTP() test_formatter.go:55 errfmt
+_tester.TryErrorformatter() test_formatter.go:47 cmd.testErrorformatter() errfmt.go:115 cmd.glob..fu
+nc1() errfmt.go:44 github.com/spf13/cobra.(*Command).execute() command.go:830 github.com/spf13/cobra
+.(*Command).ExecuteC() command.go:914 github.com/spf13/cobra.(*Command).Execute() command.go:864 cmd
+.Execute() zz_root.go:25 main.main() main.go:8 runtime.main() proc.go:203 runtime.goexit() asm_amd64
+.s:1357]"
 ```
 
 ```log
-<27>1 2019-10-15T23:42:14.739382013+02:00 fqdn.host.com application PID DETAILS_CALLS_MSG [details level="\"error\"" func="\"errfmt_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\""][calls callstack="[\"github.com/pgillich/errfmt.newWithDetails() errfmt.go:295\",\"github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271\",\"errfmt_tester.tryErrorHTTP() test_formatter.go:55\",\"errfmt_tester.TryErrorformatter() test_formatter.go:47\",\"cmd.testErrorformatter() errfmt.go:115\",\"cmd.glob..func1() errfmt.go:44\",\"github.com/spf13/cobra.(*Command).execute() command.go:830\",\"github.com/spf13/cobra.(*Command).ExecuteC() command.go:914\",\"github.com/spf13/cobra.(*Command).Execute() command.go:864\",\"cmd.Execute() zz_root.go:25\",\"main.main() main.go:8\",\"runtime.main() proc.go:203\",\"runtime.goexit() asm_amd64.s:1357\"\]"] USER MSG
+<27>1 2019-10-15T23:42:14.739382013+02:00 fqdn.host.com application PID DETAILS_CALLS_MSG [details l
+evel="\"error\"" func="\"errfmt_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: str
+conv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\""][calls calls
+tack="[\"github.com/pgillich/errfmt.newWithDetails() errfmt.go:295\",\"github.com/pgillich/errfmt.Ge
+nerateDeepErrors() errfmt.go:271\",\"errfmt_tester.tryErrorHTTP() test_formatter.go:55\",\"errfmt_te
+ster.TryErrorformatter() test_formatter.go:47\",\"cmd.testErrorformatter() errfmt.go:115\",\"cmd.glo
+b..func1() errfmt.go:44\",\"github.com/spf13/cobra.(*Command).execute() command.go:830\",\"github.co
+m/spf13/cobra.(*Command).ExecuteC() command.go:914\",\"github.com/spf13/cobra.(*Command).Execute() c
+ommand.go:864\",\"cmd.Execute() zz_root.go:25\",\"main.main() main.go:8\",\"runtime.main() proc.go:2
+03\",\"runtime.goexit() asm_amd64.s:1357\"\]"] USER MSG
 ```
 
 ```json
-{"callstack":["github.com/pgillich/errfmt.newWithDetails() errfmt.go:295","github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271","errfmt_tester.tryErrorHTTP() test_formatter.go:55","errfmt_tester.TryErrorformatter() test_formatter.go:47","cmd.testErrorformatter() errfmt.go:116","cmd.glob..func1() errfmt.go:44","github.com/spf13/cobra.(*Command).execute() command.go:830","github.com/spf13/cobra.(*Command).ExecuteC() command.go:914","github.com/spf13/cobra.(*Command).Execute() command.go:864","cmd.Execute() zz_root.go:25","main.main() main.go:8","runtime.main() proc.go:203","runtime.goexit() asm_amd64.s:1357"],"error":"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","file":"test_formatter.go:61","func":"errfmt_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time":"2019-10-16T21:47:03+02:00"}
+{"callstack":["github.com/pgillich/errfmt.newWithDetails() errfmt.go:295","github.com/pgillich/errfm
+t.GenerateDeepErrors() errfmt.go:271","errfmt_tester.tryErrorHTTP() test_formatter.go:55","errfmt_te
+ster.TryErrorformatter() test_formatter.go:47","cmd.testErrorformatter() errfmt.go:116","cmd.glob..f
+unc1() errfmt.go:44","github.com/spf13/cobra.(*Command).execute() command.go:830","github.com/spf13/
+cobra.(*Command).ExecuteC() command.go:914","github.com/spf13/cobra.(*Command).Execute() command.go:
+864","cmd.Execute() zz_root.go:25","main.main() main.go:8","runtime.main() proc.go:203","runtime.goe
+xit() asm_amd64.s:1357"],"error":"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER
+\": invalid syntax","file":"test_formatter.go:61","func":"errfmt_tester.tryErrorHTTP","level":"error
+","msg":"USER MSG","time":"2019-10-16T21:47:03+02:00"}
 ```
 
 HTTP error body:
@@ -414,7 +464,9 @@ flags := errfmt.FlagCallStackOnConsole
 Sample console outputs:
 
 ```log
-level=error time="2019-10-15T23:44:14+02:00" func=errfmt_tester.tryErrorHTTP error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_formatter.go:61"
+level=error time="2019-10-15T23:44:14+02:00" func=errfmt_tester.tryErrorHTTP error="MESSAGE 4: MESSA
+GE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_form
+atter.go:61"
 	github.com/pgillich/errfmt.newWithDetails() errfmt.go:295
 	github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271
 	errfmt_tester.tryErrorHTTP() test_formatter.go:55
@@ -431,7 +483,9 @@ level=error time="2019-10-15T23:44:14+02:00" func=errfmt_tester.tryErrorHTTP err
 ```
 
 ```log
-<27>1 2019-10-15T23:45:21.164037629+02:00 fqdn.host.com application PID DETAILS_MSG [details level="\"error\"" func="\"errfmt_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\""] USER MSG
+<27>1 2019-10-15T23:45:21.164037629+02:00 fqdn.host.com application PID DETAILS_MSG [details level="
+\"error\"" func="\"errfmt_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.A
+toi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\""] USER MSG
 	github.com/pgillich/errfmt.newWithDetails() errfmt.go:295
 	github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271
 	errfmt_tester.tryErrorHTTP() test_formatter.go:55
@@ -448,7 +502,9 @@ level=error time="2019-10-15T23:44:14+02:00" func=errfmt_tester.tryErrorHTTP err
 ```
 
 ```json
-{"error":"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","file":"test_formatter.go:61","func":"errfmt_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time":"2019-10-16T21:48:59+02:00"}
+{"error":"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","fil
+e":"test_formatter.go:61","func":"errfmt_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time
+":"2019-10-16T21:48:59+02:00"}
 	github.com/pgillich/errfmt.newWithDetails() errfmt.go:295
 	github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271
 	errfmt_tester.tryErrorHTTP() test_formatter.go:55
@@ -492,15 +548,21 @@ flags := errfmt.FlagCallStackInHTTPProblem
 Sample console outputs:
 
 ```log
-level=error time="2019-10-15T23:47:09+02:00" func=errfmt_tester.tryErrorHTTP error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_formatter.go:61"
+level=error time="2019-10-15T23:47:09+02:00" func=errfmt_tester.tryErrorHTTP error="MESSAGE 4: MESSA
+GE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_form
+atter.go:61"
 ```
 
 ```log
-<27>1 2019-10-15T23:46:36.314737301+02:00 fqdn.host.com application PID DETAILS_MSG [details level="\"error\"" func="\"errfmt_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\""] USER MSG
+<27>1 2019-10-15T23:46:36.314737301+02:00 fqdn.host.com application PID DETAILS_MSG [details level="
+\"error\"" func="\"errfmt_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.A
+toi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\""] USER MSG
 ```
 
 ```json
-{"error":"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","file":"test_formatter.go:61","func":"errfmt_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time":"2019-10-16T21:57:12+02:00"}
+{"error":"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","fil
+e":"test_formatter.go:61","func":"errfmt_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time
+":"2019-10-16T21:57:12+02:00"}
 ```
 
 HTTP error body:
@@ -546,15 +608,30 @@ flags := errfmt.FlagPrintStructFieldNames
 Sample console outputs:
 
 ```log
-level=error time="2019-10-15T23:48:17+02:00" func=errfmt_tester.tryErrorHTTP error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_formatter.go:61" K0_1=V0_1 K0_2=V0_2 K1_1=V1_1 K1_2=V1_2 K3 2="V3 space" K3"5="V3\"doublequote" K3%6="V3%percent" K3:3="V3:column" K3;3="V3;semicolumn" K3=1="V3=equal" K5_bool=true K5_int=12 K5_map="map[1:ONE 2:TWO]" K5_struct="{Text:text Integer:42 Bool:true hidden:hidden}"
+level=error time="2019-10-15T23:48:17+02:00" func=errfmt_tester.tryErrorHTTP error="MESSAGE 4: MESSA
+GE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_form
+atter.go:61" K0_1=V0_1 K0_2=V0_2 K1_1=V1_1 K1_2=V1_2 K3 2="V3 space" K3"5="V3\"doublequote" K3%6="V3
+%percent" K3:3="V3:column" K3;3="V3;semicolumn" K3=1="V3=equal" K5_bool=true K5_int=12 K5_map="map[1
+:ONE 2:TWO]" K5_struct="{Text:text Integer:42 Bool:true hidden:hidden}"
 ```
 
 ```log
-<27>1 2019-10-15T23:49:37.955901918+02:00 fqdn.host.com application PID DETAILS_MSG [details level="\"error\"" func="\"errfmt_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\"" K0_1="\"V0_1\"" K0_2="\"V0_2\"" K1_1="\"V1_1\"" K1_2="\"V1_2\"" K3_2="\"V3 space\"" K3_5="\"V3\\\"doublequote\"" K3%6="\"V3%percent\"" K3:3="\"V3:column\"" K3;3="\"V3;semicolumn\"" K3_1="\"V3=equal\"" K5_bool="\"true\"" K5_int="12" K5_map="\"map[1:ONE 2:TWO\]\"" K5_struct="\"{Text:text Integer:42 Bool:true hidden:hidden}\""] USER MSG
+<27>1 2019-10-15T23:49:37.955901918+02:00 fqdn.host.com application PID DETAILS_MSG [details level="
+\"error\"" func="\"errfmt_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.A
+toi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\"" K0_1="\"V0_1\"" K0
+_2="\"V0_2\"" K1_1="\"V1_1\"" K1_2="\"V1_2\"" K3_2="\"V3 space\"" K3_5="\"V3\\\"doublequote\"" K3%6=
+"\"V3%percent\"" K3:3="\"V3:column\"" K3;3="\"V3;semicolumn\"" K3_1="\"V3=equal\"" K5_bool="\"true\"
+" K5_int="12" K5_map="\"map[1:ONE 2:TWO\]\"" K5_struct="\"{Text:text Integer:42 Bool:true hidden:hid
+den}\""] USER MSG
 ```
 
 ```json
-{"K0_1":"V0_1","K0_2":"V0_2","K1_1":"V1_1","K1_2":"V1_2","K3 2":"V3 space","K3\"5":"V3\"doublequote","K3%6":"V3%percent","K3:3":"V3:column","K3;3":"V3;semicolumn","K3=1":"V3=equal","K5_bool":true,"K5_int":12,"K5_map":{"1":"ONE","2":"TWO"},"K5_struct":{"Text":"text","Integer":42,"Bool":true},"error":"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","file":"test_formatter.go:61","func":"errfmt_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time":"2019-10-16T22:00:18+02:00"}
+{"K0_1":"V0_1","K0_2":"V0_2","K1_1":"V1_1","K1_2":"V1_2","K3 2":"V3 space","K3\"5":"V3\"doublequote"
+,"K3%6":"V3%percent","K3:3":"V3:column","K3;3":"V3;semicolumn","K3=1":"V3=equal","K5_bool":true,"K5_
+int":12,"K5_map":{"1":"ONE","2":"TWO"},"K5_struct":{"Text":"text","Integer":42,"Bool":true},"error":
+"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","file":"test_
+formatter.go:61","func":"errfmt_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time":"2019-1
+0-16T22:00:18+02:00"}
 ```
 
 HTTP error body:
@@ -599,15 +676,29 @@ flags := errfmt.FlagExtractDetails|errfmt.FlagTrimJSONDquote
 Sample console outputs:
 
 ```log
-level=error time="2019-10-15T23:52:40+02:00" func=errfmt_tester.tryErrorHTTP error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_formatter.go:61" K0_1=V0_1 K0_2=V0_2 K1_1=V1_1 K1_2=V1_2 K3 2="V3 space" K3"5="V3\"doublequote" K3%6="V3%percent" K3:3="V3:column" K3;3="V3;semicolumn" K3=1="V3=equal" K5_bool=true K5_int=12 K5_map="map[1:ONE 2:TWO]" K5_struct="{text 42 true hidden}"
+level=error time="2019-10-15T23:52:40+02:00" func=errfmt_tester.tryErrorHTTP error="MESSAGE 4: MESSA
+GE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_form
+atter.go:61" K0_1=V0_1 K0_2=V0_2 K1_1=V1_1 K1_2=V1_2 K3 2="V3 space" K3"5="V3\"doublequote" K3%6="V3
+%percent" K3:3="V3:column" K3;3="V3;semicolumn" K3=1="V3=equal" K5_bool=true K5_int=12 K5_map="map[1
+:ONE 2:TWO]" K5_struct="{text 42 true hidden}"
 ```
 
 ```log
-<27>1 2019-10-15T23:53:25.743483528+02:00 fqdn.host.com application PID DETAILS_MSG [details level="error" func="errfmt_tester.tryErrorHTTP" error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax" file="test_formatter.go:61" K0_1="V0_1" K0_2="V0_2" K1_1="V1_1" K1_2="V1_2" K3_2="V3 space" K3_5="V3\\\"doublequote" K3%6="V3%percent" K3:3="V3:column" K3;3="V3;semicolumn" K3_1="V3=equal" K5_bool="true" K5_int="12" K5_map="{\"1\":\"ONE\",\"2\":\"TWO\"}" K5_struct="{\"Text\":\"text\",\"Integer\":42,\"Bool\":true}"] USER MSG
+<27>1 2019-10-15T23:53:25.743483528+02:00 fqdn.host.com application PID DETAILS_MSG [details level="
+error" func="errfmt_tester.tryErrorHTTP" error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsi
+ng \\\"NO_NUMBER\\\": invalid syntax" file="test_formatter.go:61" K0_1="V0_1" K0_2="V0_2" K1_1="V1_1
+" K1_2="V1_2" K3_2="V3 space" K3_5="V3\\\"doublequote" K3%6="V3%percent" K3:3="V3:column" K3;3="V3;s
+emicolumn" K3_1="V3=equal" K5_bool="true" K5_int="12" K5_map="{\"1\":\"ONE\",\"2\":\"TWO\"}" K5_stru
+ct="{\"Text\":\"text\",\"Integer\":42,\"Bool\":true}"] USER MSG
 ```
 
 ```json
-{"K0_1":"V0_1","K0_2":"V0_2","K1_1":"V1_1","K1_2":"V1_2","K3 2":"V3 space","K3\"5":"V3\"doublequote","K3%6":"V3%percent","K3:3":"V3:column","K3;3":"V3;semicolumn","K3=1":"V3=equal","K5_bool":true,"K5_int":12,"K5_map":{"1":"ONE","2":"TWO"},"K5_struct":{"Text":"text","Integer":42,"Bool":true},"error":"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","file":"test_formatter.go:61","func":"errfmt_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time":"2019-10-16T22:05:13+02:00"}
+{"K0_1":"V0_1","K0_2":"V0_2","K1_1":"V1_1","K1_2":"V1_2","K3 2":"V3 space","K3\"5":"V3\"doublequote"
+,"K3%6":"V3%percent","K3:3":"V3:column","K3;3":"V3;semicolumn","K3=1":"V3=equal","K5_bool":true,"K5_
+int":12,"K5_map":{"1":"ONE","2":"TWO"},"K5_struct":{"Text":"text","Integer":42,"Bool":true},"error":
+"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","file":"test_
+formatter.go:61","func":"errfmt_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time":"2019-1
+0-16T22:05:13+02:00"}
 ```
 
 HTTP error body:
@@ -660,7 +751,12 @@ logger := errfmt.NewJSONLogger(log.InfoLevel, flags, callStackSkipLast)
 Sample console outputs:
 
 ```log
-level=error time="2019-10-16T00:04:56+02:00" func=errfmt_tester.tryErrorHTTP error="MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_formatter.go:61" callstack="[github.com/pgillich/errfmt.newWithDetails() errfmt.go:295 github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271 errfmt_tester.tryErrorHTTP() test_formatter.go:55 errfmt_tester.TryErrorformatter() test_formatter.go:47 cmd.testErrorformatter() errfmt.go:115 cmd.glob..func1() errfmt.go:44]"
+level=error time="2019-10-16T00:04:56+02:00" func=errfmt_tester.tryErrorHTTP error="MESSAGE 4: MESSA
+GE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax" msg="USER MSG" file="test_form
+atter.go:61" callstack="[github.com/pgillich/errfmt.newWithDetails() errfmt.go:295 github.com/pgilli
+ch/errfmt.GenerateDeepErrors() errfmt.go:271 errfmt_tester.tryErrorHTTP() test_formatter.go:55 errfm
+t_tester.TryErrorformatter() test_formatter.go:47 cmd.testErrorformatter() errfmt.go:115 cmd.glob..f
+unc1() errfmt.go:44]"
 	github.com/pgillich/errfmt.newWithDetails() errfmt.go:295
 	github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271
 	errfmt_tester.tryErrorHTTP() test_formatter.go:55
@@ -670,7 +766,13 @@ level=error time="2019-10-16T00:04:56+02:00" func=errfmt_tester.tryErrorHTTP err
 ```
 
 ```log
-<27>1 2019-10-16T00:06:08.01630693+02:00 fqdn.host.com application PID DETAILS_CALLS_MSG [details level="\"error\"" func="\"errfmt_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\""][calls callstack="[\"github.com/pgillich/errfmt.newWithDetails() errfmt.go:295\",\"github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271\",\"errfmt_tester.tryErrorHTTP() test_formatter.go:55\",\"errfmt_tester.TryErrorformatter() test_formatter.go:47\",\"cmd.testErrorformatter() errfmt.go:115\",\"cmd.glob..func1() errfmt.go:44\"\]"] USER MSG
+<27>1 2019-10-16T00:06:08.01630693+02:00 fqdn.host.com application PID DETAILS_CALLS_MSG [details le
+vel="\"error\"" func="\"errfmt_tester.tryErrorHTTP\"" error="\"MESSAGE 4: MESSAGE:2: MESSAGE%0: strc
+nv.Atoi: parsing \\\"NO_NUMBER\\\": invalid syntax\"" file="\"test_formatter.go:61\""][calls callsta
+ck="[\"github.com/pgillich/errfmt.newWithDetails() errfmt.go:295\",\"github.com/pgillich/errfmt.Gene
+rateDeepErrors() errfmt.go:271\",\"errfmt_tester.tryErrorHTTP() test_formatter.go:55\",\"errfmt_test
+er.TryErrorformatter() test_formatter.go:47\",\"cmd.testErrorformatter() errfmt.go:115\",\"cmd.glob.
+.func1() errfmt.go:44\"\]"] USER MSG
 	github.com/pgillich/errfmt.newWithDetails() errfmt.go:295
 	github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271
 	errfmt_tester.tryErrorHTTP() test_formatter.go:55
@@ -680,7 +782,12 @@ level=error time="2019-10-16T00:04:56+02:00" func=errfmt_tester.tryErrorHTTP err
 ```
 
 ```json
-{"callstack":["github.com/pgillich/errfmt.newWithDetails() errfmt.go:295","github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271","errfmt_tester.tryErrorHTTP() test_formatter.go:55","errfmt_tester.TryErrorformatter() test_formatter.go:47","cmd.testErrorformatter() errfmt.go:115","cmd.glob..func1() errfmt.go:44"],"error":"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\": invalid syntax","file":"test_formatter.go:61","func":"errfmt_tester.tryErrorHTTP","level":"error","msg":"USER MSG","time":"2019-10-16T00:06:30+02:00"}
+{"callstack":["github.com/pgillich/errfmt.newWithDetails() errfmt.go:295","github.com/pgillich/errfm
+t.GenerateDeepErrors() errfmt.go:271","errfmt_tester.tryErrorHTTP() test_formatter.go:55","errfmt_te
+ster.TryErrorformatter() test_formatter.go:47","cmd.testErrorformatter() errfmt.go:115","cmd.glob..f
+unc1() errfmt.go:44"],"error":"MESSAGE 4: MESSAGE:2: MESSAGE%0: strconv.Atoi: parsing \"NO_NUMBER\":
+ invalid syntax","file":"test_formatter.go:61","func":"errfmt_tester.tryErrorHTTP","level":"error","
+ msg":"USER MSG","time":"2019-10-16T00:06:30+02:00"}
 	github.com/pgillich/errfmt.newWithDetails() errfmt.go:295
 	github.com/pgillich/errfmt.GenerateDeepErrors() errfmt.go:271
 	errfmt_tester.tryErrorHTTP() test_formatter.go:55

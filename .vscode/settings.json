@@ -9,4 +9,5 @@
     "markdownlint.config": {
         "MD010": false,
     },
+    "editor.minimap.maxColumn": 100,
 }
