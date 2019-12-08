@@ -55,8 +55,9 @@ func GetAdvancedFormatter(formatter log.Formatter) *AdvancedFormatter {
 	return nil
 }
 
+// BuildHTTPProblem builds a new HTTPProblem
 // nolint:golint,gocyclo,funlen
-func RenderHTTPProblem(statusCode int, entry *log.Entry) ([]byte, error) {
+func BuildHTTPProblem(statusCode int, entry *log.Entry) *HTTPProblem {
 	f := GetAdvancedFormatter(entry.Logger.Formatter)
 	data := f.PrepareFields(entry, GetClashingFieldsHTTP())
 
@@ -99,13 +100,18 @@ func RenderHTTPProblem(statusCode int, entry *log.Entry) ([]byte, error) {
 		detail = fmt.Sprintf("%s", msg)
 	}
 
-	httpProblem := NewHTTPProblem(
+	return NewHTTPProblem(
 		statusCode,
 		title,
 		detail,
 		details,
 		callStack,
 	)
+}
+
+// RenderHTTPProblem renders HTTPProblem a JSON
+func RenderHTTPProblem(statusCode int, entry *log.Entry) ([]byte, error) {
+	httpProblem := BuildHTTPProblem(statusCode, entry)
 
 	resp, err := JSONMarshal(httpProblem, "  ", false)
 	if err != nil {
