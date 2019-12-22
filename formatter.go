@@ -39,7 +39,7 @@ func (f *AdvancedFormatter) PrepareFields(entry *log.Entry, fixedFields []string
 	}
 
 	callStackLines := f.GetCallStack(entry)
-	if (f.Flags & FlagCallStackInFields) > 0 {
+	if (f.Flags & FlagCallStackInFields) > 0 { // nolint:wsl
 		data[KeyCallStack] = callStackLines
 	}
 
@@ -50,6 +50,7 @@ func (f *AdvancedFormatter) PrepareFields(entry *log.Entry, fixedFields []string
 		data[log.FieldKeyFunc] = funcVal
 		data[log.FieldKeyFile] = fileVal
 	}
+
 	if entry.Level != log.PanicLevel {
 		data[log.FieldKeyLevel] = entry.Level
 	}
@@ -71,6 +72,7 @@ func (f *AdvancedFormatter) MergeDetailsToFields(entry *log.Entry) log.Fields {
 	for k, v := range entry.Data {
 		data[k] = v
 	}
+
 	return data
 }
 
@@ -115,6 +117,7 @@ func (f *AdvancedFormatter) AppendCallStack(textPart []byte, callStackLines []st
 		if len(textPart) > 0 && textPart[len(textPart)-1] != '\n' {
 			textPart = append(textPart, '\n')
 		}
+
 		textPart = append(textPart, '\t')
 		textPart = append(textPart,
 			[]byte(strings.Join(callStackLines, "\n\t"))...,

@@ -86,6 +86,7 @@ func TrimModuleNamePrefix(functionName string) string {
 	for prefix := range skipPackageNameForCaller {
 		prefixDot := prefix + "."
 		prefixSlash := prefix + "/"
+
 		if strings.HasPrefix(functionName, prefixDot) {
 			functionName = strings.TrimPrefix(functionName, prefixDot)
 			break
@@ -164,6 +165,7 @@ func FunctionName() string {
 func FunctionNameShort() string {
 	pc, _, _, _ := runtime.Caller(1) // nolint:dogsled
 	longName := runtime.FuncForPC(pc).Name()
+
 	return longName[strings.LastIndex(longName, "/")+1:]
 }
 
@@ -197,15 +199,19 @@ JSONMarshal marshals with escapeHTML flag.
 func JSONMarshal(t interface{}, indent string, escapeHTML bool) ([]byte, error) {
 	buffer := &bytes.Buffer{}
 	encoder := json.NewEncoder(buffer)
+
 	if len(indent) > 0 {
 		encoder.SetIndent("", indent)
 	}
+
 	encoder.SetEscapeHTML(escapeHTML)
 	err := encoder.Encode(t)
+
 	jsonBytes := buffer.Bytes()
 	if len(jsonBytes) > 0 && jsonBytes[len(jsonBytes)-1] == '\n' {
 		jsonBytes = jsonBytes[0 : len(jsonBytes)-1]
 	}
+
 	return jsonBytes, err
 }
 
@@ -229,6 +235,7 @@ func GetFieldString(input interface{}, keyName string) *string {
 	if input == nil {
 		return nil
 	}
+
 	var inputVal reflect.Value
 	if inputVal = reflect.ValueOf(input); !inputVal.IsValid() {
 		return nil
@@ -238,11 +245,13 @@ func GetFieldString(input interface{}, keyName string) *string {
 		if inputVal.IsNil() {
 			return nil
 		}
+
 		inputVal = reflect.Indirect(inputVal)
 		if !inputVal.IsValid() {
 			return nil
 		}
 	}
+
 	if inputVal.Kind() == reflect.Struct {
 		typ := inputVal.Type()
 		for i := 0; i < typ.NumField(); i++ {
@@ -251,6 +260,7 @@ func GetFieldString(input interface{}, keyName string) *string {
 					fieldValue := fmt.Sprintf("%+v", field)
 					return &fieldValue
 				}
+
 				break
 			}
 		}

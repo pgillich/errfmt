@@ -58,6 +58,7 @@ func NewAdvancedTextFormatter(flags int, callStackSkipLast int) *AdvancedTextFor
 func (f *AdvancedTextFormatter) Format(entry *log.Entry) ([]byte, error) {
 	entry.Data = f.MergeDetailsToFields(entry)
 	callStackLines := f.GetCallStack(entry)
+
 	if (f.Flags & FlagCallStackInFields) > 0 {
 		entry.Data[KeyCallStack] = callStackLines
 	}
@@ -101,9 +102,11 @@ func (sorter EntryFieldSorter) Swap(i, j int) {
 func (sorter EntryFieldSorter) Less(i, j int) bool {
 	iWeight := sorter.weight(i)
 	jWeight := sorter.weight(j)
+
 	if iWeight == jWeight {
 		return sorter.items[i] < sorter.items[j]
 	}
+
 	return iWeight > jWeight
 }
 
@@ -112,6 +115,7 @@ func (sorter EntryFieldSorter) weight(i int) int {
 	if weight, ok := sorter.fieldOrder[sorter.items[i]]; ok {
 		return weight
 	}
+
 	return 0
 }
 

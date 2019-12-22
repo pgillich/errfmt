@@ -73,11 +73,13 @@ func (f *AdvancedSyslogFormatter) Format(entry *log.Entry) ([]byte, error) { //n
 
 	detailList := NewJSONDataElement(StructuredIDDetails)
 	detailKeys := []string{}
+
 	for key := range data {
 		if key != KeyCallStack {
 			detailKeys = append(detailKeys, key)
 		}
 	}
+
 	f.SortingFunc(detailKeys)
 	for _, key := range detailKeys {
 		detailList.Append(key, data[key], trimJSONDquote)
@@ -96,6 +98,7 @@ func (f *AdvancedSyslogFormatter) Format(entry *log.Entry) ([]byte, error) { //n
 
 		structuredData = append(structuredData, callsList)
 	}
+
 	msgID := f.MsgID
 	if msgID == "" {
 		msgID = rfc5424.MsgID(msgIDdefault)
@@ -117,7 +120,6 @@ func (f *AdvancedSyslogFormatter) Format(entry *log.Entry) ([]byte, error) { //n
 		Msg:            entry.Message,
 	}
 
-	//textPart := []byte(message.String())
 	textPart := []byte(MessageString(message))
 
 	if (f.Flags & FlagCallStackOnConsole) > 0 {
@@ -130,9 +132,11 @@ func (f *AdvancedSyslogFormatter) Format(entry *log.Entry) ([]byte, error) { //n
 // nolint:golint
 func MessageString(m rfc5424.Message) string {
 	stringStructuredData := StructuredDataString(m.StructuredData)
+
 	if m.Msg == "" {
 		return fmt.Sprintf("%s %s", m.Header, stringStructuredData)
 	}
+
 	return fmt.Sprintf("%s %s %s", m.Header, stringStructuredData, m.Msg)
 }
 
@@ -146,6 +150,7 @@ func StructuredDataString(sd rfc5424.StructuredData) string {
 	for i, elem := range sd {
 		elems[i] = StructuredDataElementString(elem)
 	}
+
 	return strings.Join(elems, "")
 }
 
@@ -160,6 +165,7 @@ func StructuredDataElementString(sde rfc5424.StructuredDataElement) string {
 	for i, param := range params {
 		paramStrs[i] = StructuredDataParamSting(param)
 	}
+
 	return fmt.Sprintf("[%s %s]", sde.ID(), strings.Join(paramStrs, " "))
 }
 
@@ -195,6 +201,7 @@ func NewJSONDataElement(id string) *JSONDataElement {
 // nolint:golint
 func (de *JSONDataElement) Append(name string, value interface{}, trimJSONDquote bool) {
 	bytes, err := JSONMarshal(value, "", false)
+
 	var jsonValue string
 	if err != nil {
 		jsonValue = err.Error()

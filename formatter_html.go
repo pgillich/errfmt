@@ -22,9 +22,9 @@ func WriteHTTPProblem(w http.ResponseWriter, statusCode int, entry *log.Entry) *
 
 	w.Header().Set("Content-Type", problems.ProblemMediaType)
 	w.WriteHeader(statusCode)
+
 	entry = ExtractHTTPProblem(&respBody, statusCode, entry)
-	_, err := w.Write(respBody)
-	if err != nil {
+	if _, err := w.Write(respBody); err != nil {
 		entry.Data[KeyHTTPProblemError] = err
 	}
 
@@ -52,6 +52,7 @@ func GetAdvancedFormatter(formatter log.Formatter) *AdvancedFormatter {
 	case *AdvancedJSONFormatter:
 		return &f.AdvancedFormatter
 	}
+
 	return nil
 }
 
@@ -69,11 +70,14 @@ func BuildHTTPProblem(statusCode int, entry *log.Entry) *HTTPProblem {
 
 	callStack := []string{}
 	callStackLines := f.GetCallStack(entry)
+
 	if (f.Flags & FlagCallStackInHTTPProblem) > 0 {
 		callStack = callStackLines
 	}
 
 	title := http.StatusText(statusCode)
+	// TODO cleanup
+	// nolint:gocritic
 	/*
 		if errorVal, ok := data[log.ErrorKey]; ok {
 			if err, ok := errorVal.(error); ok {
@@ -81,9 +85,12 @@ func BuildHTTPProblem(statusCode int, entry *log.Entry) *HTTPProblem {
 			}
 		}
 	*/
+
 	details := map[string]string{}
+
 	for k, v := range data {
 		bytes, err := JSONMarshal(v, "", false)
+
 		var jsonValue string
 		if err != nil {
 			jsonValue = err.Error()
@@ -150,6 +157,7 @@ func NewHTTPProblem(status int, title string, message string,
 		Details:   details,
 		CallStack: callStack,
 	}
+
 	return &p
 }
 

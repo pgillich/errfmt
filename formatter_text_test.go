@@ -120,6 +120,8 @@ func TestLogrus_TextLogger_Info(t *testing.T) {
 		2)
 	ts := time.Now()
 	tsRFC3339 := ts.Format(time.RFC3339)
+	// TODO cleanup
+	// nolint:gocritic
 	/*
 		formatter, ok := loggerMock.Logger.Formatter.(*AdvancedTextFormatter)
 		assert.True(t, ok, "AdvancedTextFormatter")

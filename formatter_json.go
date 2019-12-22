@@ -49,6 +49,7 @@ func NewAdvancedJSONFormatter(flags int, callStackSkipLast int) *AdvancedJSONFor
 func (f *AdvancedJSONFormatter) Format(entry *log.Entry) ([]byte, error) {
 	entry.Data = f.MergeDetailsToFields(entry)
 	callStackLines := f.GetCallStack(entry)
+
 	if (f.Flags & FlagCallStackInFields) > 0 {
 		entry.Data[KeyCallStack] = callStackLines
 	}
@@ -58,5 +59,6 @@ func (f *AdvancedJSONFormatter) Format(entry *log.Entry) ([]byte, error) {
 	if (f.Flags & FlagCallStackOnConsole) > 0 {
 		textPart = f.AppendCallStack(textPart, callStackLines)
 	}
+
 	return textPart, err
 }
