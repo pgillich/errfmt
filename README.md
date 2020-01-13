@@ -60,6 +60,7 @@ Differences to original `logrus.TextLogger`:
 * Field order is similar to Syslog ([RFC5424](https://tools.ietf.org/html/rfc5424))
 * `logrus.Logger.ReportCaller` is true by default
 * Package prefix trimmed from the func name and file path
+* `logrus.TextFormatter.DisableColors` and `logrus.TextFormatter.QuoteEmptyFields` are true
 
 ## Advanced error handling
 

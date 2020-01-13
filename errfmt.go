@@ -18,11 +18,14 @@ import (
 )
 
 const (
-	// KeyCallStack is a context key and field name for call stack
+	// KeyCallStack is a field name for call stack
 	KeyCallStack = "callstack"
+	// KeyCallStackHidden is a field name for hidden call stack (will be printed on console)
+	//KeyCallStackHidden = "_callstack"
 	// MaximumCallerDepth is the max. call stack deep
 	MaximumCallerDepth = 50
 	// DisabledFieldWeight is the value for dropping the field during ordering
+	// NOT IMPLEMENTED
 	DisabledFieldWeight = -100
 
 	// FlagNone disables all flags of AdvancedLogger.Flags
@@ -40,6 +43,16 @@ const (
 	// FlagTrimJSONDquote trims the leading and trailing '"' of JSON-formatted values
 	FlagTrimJSONDquote = 1 << 5
 )
+
+// ErrHandler implements emperror.Handler interface
+type ErrHandler struct {
+	Logger *log.Logger
+}
+
+// Handle logs an error.
+func (h *ErrHandler) Handle(err error) {
+
+}
 
 var (
 	skipPackageNameForCaller = make(map[string]struct{}, 1) // nolint:gochecknoglobals
@@ -303,4 +316,23 @@ func GenerateDeepErrors() error {
 func newWithDetails() error {
 	_, err := strconv.Atoi("NO_NUMBER")
 	return errors.WrapWithDetails(err, "MESSAGE%0", "K0_1", "V0_1", "K0_2", "V0_2")
+}
+
+/*HookAllLevels implements logrus.Hook
+appends hard-coded all Levels() to Fire()
+
+Hooks are called by logrus.Log() and similars (Info(), Warnf(), etc)...
+- after: set Entry.Time, set Entry.Caller
+- before: calling Logger.Formatter (prefixFieldClashes(), fixedkeys, Caller format, sorting)
+*/
+type HookAllLevels func(entry *log.Entry) error
+
+// Fire (HookAllLevels) is called by logrus.Entry.log(), which is thread-safe, see there.
+func (hook HookAllLevels) Fire(entry *log.Entry) error {
+	return hook(entry)
+}
+
+// Levels (HookAllLevels) returns all levels
+func (_ HookAllLevels) Levels() []log.Level {
+	return log.AllLevels
 }

@@ -7,7 +7,7 @@ import (
 )
 
 /*
-NewTextLogger builds a customized Logrus JSON logger+formatter
+NewTextLogger builds a customized Logrus text logger+formatter
 	Features:
 	* CallStackSkipLast
 	* CallStackNewLines and CallStackInFields
@@ -22,6 +22,18 @@ func NewTextLogger(level log.Level, flags int, callStackSkipLast int,
 	logger.Level = level
 	logger.ReportCaller = true
 
+	if flags&FlagExtractDetails > 0 {
+		logger.AddHook(HookAllLevels(AppendDetailsToEntry))
+	}
+
+	if flags&FlagCallStackInFields > 0 {
+		logger.AddHook(HookAllLevels(AppendCallStackToEntry(callStackSkipLast)))
+	}
+
+	if flags&FlagPrintStructFieldNames > 0 {
+		logger.AddHook(HookAllLevels(RenderStructFieldNames))
+	}
+
 	return logger
 }
 
@@ -34,6 +46,7 @@ AdvancedTextFormatter is a customized Logrus Text formatter
 */
 type AdvancedTextFormatter struct {
 	log.TextFormatter
+	ConsoleFlags
 	AdvancedFormatter
 }
 
@@ -46,29 +59,34 @@ func NewAdvancedTextFormatter(flags int, callStackSkipLast int) *AdvancedTextFor
 			DisableColors:    true,
 			QuoteEmptyFields: true,
 		},
+		ConsoleFlags: ConsoleFlags{
+			CallStackOnConsole: flags&FlagCallStackOnConsole > 0,
+			CallStackSkipLast:  callStackSkipLast,
+		},
+
 		AdvancedFormatter: AdvancedFormatter{
-			Flags:             flags,
-			CallStackSkipLast: callStackSkipLast,
+			Flags:              flags,
+			CallStackSkipLastX: callStackSkipLast,
 		},
 	}
 }
 
 // Format implements logrus.Formatter interface
-// nolint:gocyclo,funlen
+// calls logrus.TextFormatter.Format()
 func (f *AdvancedTextFormatter) Format(entry *log.Entry) ([]byte, error) {
-	entry.Data = f.MergeDetailsToFields(entry)
-	callStackLines := f.GetCallStack(entry)
+	var consoleCallStackLines []string
 
-	if (f.Flags & FlagCallStackInFields) > 0 {
-		entry.Data[KeyCallStack] = callStackLines
+	if f.CallStackOnConsole {
+		consoleCallStackLines = GetCallStack(entry)
 	}
 
-	f.RenderFieldValues(entry.Data)
+	// consoleCallStackLines cannot be dig anymore
+	RenderErrorInEntry(entry)
 
 	textPart, err := f.TextFormatter.Format(entry)
 
-	if (f.Flags & FlagCallStackOnConsole) > 0 {
-		textPart = f.AppendCallStack(textPart, callStackLines)
+	if len(consoleCallStackLines) > f.CallStackSkipLast {
+		textPart = AppendCallStack(textPart, consoleCallStackLines[:len(consoleCallStackLines)-f.CallStackSkipLast])
 	}
 
 	return textPart, err
@@ -79,7 +97,6 @@ func (f *AdvancedTextFormatter) Format(entry *log.Entry) ([]byte, error) {
 func SortingFuncDecorator(fieldOrder map[string]int) func([]string) {
 	return func(keys []string) {
 		sorter := EntryFieldSorter{keys, fieldOrder}
-		sorter.dropDisabled()
 		sort.Sort(sorter)
 	}
 }
@@ -120,7 +137,8 @@ func (sorter EntryFieldSorter) weight(i int) int {
 }
 
 // dropDisabled is in-place drop
-func (sorter EntryFieldSorter) dropDisabled() {
+/* NOT IMPLEMENTED
+func (sorter *EntryFieldSorter) dropDisabled() {
 	n := 0
 	for _, item := range sorter.items {
 		if weight, ok := sorter.fieldOrder[item]; !ok || weight > DisabledFieldWeight {
@@ -128,19 +146,25 @@ func (sorter EntryFieldSorter) dropDisabled() {
 			n++
 		}
 	}
-	sorter.items = sorter.items[:n]
+	remained := sorter.items[:n]
+	sorter.items = remained
 }
+*/
 
 // AdvancedFieldOrder is the default field order (similar to syslog)
 func AdvancedFieldOrder() map[string]int {
 	return map[string]int{
 		log.FieldKeyLevel:       100, // first
 		log.FieldKeyTime:        90,
+		KeyHandlerFunc:          81,
 		log.FieldKeyFunc:        80,
 		log.ErrorKey:            70,
 		log.FieldKeyMsg:         60,
 		log.FieldKeyLogrusError: 50,
 		log.FieldKeyFile:        40,
 		KeyCallStack:            -10, // after normal fields
+
+		// value DisabledFieldWeight drops the field
+		//KeyCallStackHidden: DisabledFieldWeight,
 	}
 }

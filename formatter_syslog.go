@@ -27,6 +27,18 @@ func NewSyslogLogger(level log.Level, flags int, callStackSkipLast int,
 	logger.Level = level
 	logger.ReportCaller = true
 
+	if flags&FlagExtractDetails > 0 {
+		logger.AddHook(HookAllLevels(AppendDetailsToEntry))
+	}
+
+	if flags&FlagCallStackInFields > 0 {
+		logger.AddHook(HookAllLevels(AppendCallStackToEntry(callStackSkipLast)))
+	}
+
+	if flags&FlagPrintStructFieldNames > 0 {
+		logger.AddHook(HookAllLevels(RenderStructFieldNames))
+	}
+
 	return logger
 }
 
@@ -38,6 +50,7 @@ type AdvancedSyslogFormatter struct {
 	AppName         rfc5424.AppName
 	ProcID          rfc5424.ProcID
 	MsgID           rfc5424.MsgID
+	ConsoleFlags
 	AdvancedFormatter
 	SortingFunc func([]string)
 }
@@ -54,9 +67,13 @@ func NewAdvancedSyslogFormatter(flags int, callStackSkipLast int,
 		AppName:         rfc5424.AppName(appName),
 		ProcID:          rfc5424.ProcID(procID),
 		MsgID:           rfc5424.MsgID(msgID),
+		ConsoleFlags: ConsoleFlags{
+			CallStackOnConsole: flags&FlagCallStackOnConsole > 0,
+			CallStackSkipLast:  callStackSkipLast,
+		},
 		AdvancedFormatter: AdvancedFormatter{
-			Flags:             flags,
-			CallStackSkipLast: callStackSkipLast,
+			Flags:              flags,
+			CallStackSkipLastX: callStackSkipLast,
 		},
 		SortingFunc: SortingFuncDecorator(AdvancedFieldOrder()),
 	}
@@ -66,23 +83,33 @@ func NewAdvancedSyslogFormatter(flags int, callStackSkipLast int,
 
 // Format implements logrus.Formatter interface
 func (f *AdvancedSyslogFormatter) Format(entry *log.Entry) ([]byte, error) { //nolint:funlen,gocyclo
-	trimJSONDquote := (f.Flags & FlagTrimJSONDquote) > 0
+	var consoleCallStackLines []string
 
-	data := f.PrepareFields(entry, f.GetClashingFields())
-	callStackLines := f.GetCallStack(entry)
+	if f.CallStackOnConsole {
+		consoleCallStackLines = GetCallStack(entry)
+	}
+
+	PrepareFields(entry, GetClashingFieldsSyslog())
+
+	// consoleCallStackLines cannot be dig anymore
+	RenderErrorInEntry(entry)
 
 	detailList := NewJSONDataElement(StructuredIDDetails)
 	detailKeys := []string{}
 
-	for key := range data {
-		if key != KeyCallStack {
+	var hasKeyCallStack bool
+	for key := range entry.Data {
+		if key == KeyCallStack {
+			hasKeyCallStack = true
+		} else {
 			detailKeys = append(detailKeys, key)
 		}
 	}
 
+	trimJSONDquote := (f.Flags & FlagTrimJSONDquote) > 0
 	f.SortingFunc(detailKeys)
 	for _, key := range detailKeys {
-		detailList.Append(key, data[key], trimJSONDquote)
+		detailList.Append(key, entry.Data[key], trimJSONDquote)
 	}
 
 	structuredData := rfc5424.StructuredData{
@@ -90,11 +117,11 @@ func (f *AdvancedSyslogFormatter) Format(entry *log.Entry) ([]byte, error) { //n
 	}
 
 	msgIDdefault := "DETAILS_MSG"
-	if (f.Flags & FlagCallStackInFields) > 0 {
+	if hasKeyCallStack {
 		msgIDdefault = "DETAILS_CALLS_MSG"
 
 		callsList := NewJSONDataElement(StructuredIDCallStack)
-		callsList.Append(KeyCallStack, callStackLines, trimJSONDquote)
+		callsList.Append(KeyCallStack, entry.Data[KeyCallStack], trimJSONDquote)
 
 		structuredData = append(structuredData, callsList)
 	}
@@ -122,8 +149,8 @@ func (f *AdvancedSyslogFormatter) Format(entry *log.Entry) ([]byte, error) { //n
 
 	textPart := []byte(MessageString(message))
 
-	if (f.Flags & FlagCallStackOnConsole) > 0 {
-		textPart = f.AppendCallStack(textPart, callStackLines)
+	if len(consoleCallStackLines) > f.CallStackSkipLast {
+		textPart = AppendCallStack(textPart, consoleCallStackLines[:len(consoleCallStackLines)-f.CallStackSkipLast])
 	}
 
 	return textPart, nil
@@ -246,6 +273,13 @@ func FixStructuredDataName(name string) string {
 	}
 
 	return str.String()
+}
+
+func GetClashingFieldsSyslog() []string {
+	return []string{
+		log.FieldKeyLevel, log.FieldKeyTime, log.FieldKeyFunc,
+		log.FieldKeyMsg, log.FieldKeyFile, // KeyCallStack,
+	}
 }
 
 // prefixFieldClashes is a copy of Logrus feature

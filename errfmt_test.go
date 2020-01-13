@@ -26,6 +26,11 @@ func replaceCallLine(lines string) string {
 	return linePattern.ReplaceAllString(lines, ".go:0")
 }
 
+func replaceTimestamp(lines string) string {
+	linePattern := regexp.MustCompile(`(?m)([\d-]+T[\d:]+\+[\d:]+)`)
+	return linePattern.ReplaceAllString(lines, "RFC3339")
+}
+
 func TestMessages(t *testing.T) {
 	err := GenerateDeepErrors()
 

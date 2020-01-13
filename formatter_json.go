@@ -19,6 +19,18 @@ func NewJSONLogger(level log.Level, flags int, callStackSkipLast int,
 	logger.Level = level
 	logger.ReportCaller = true
 
+	if flags&FlagExtractDetails > 0 {
+		logger.AddHook(HookAllLevels(AppendDetailsToEntry))
+	}
+
+	if flags&FlagCallStackInFields > 0 {
+		logger.AddHook(HookAllLevels(AppendCallStackToEntry(callStackSkipLast)))
+	}
+
+	if flags&FlagPrintStructFieldNames > 0 {
+		logger.AddHook(HookAllLevels(RenderStructFieldNames))
+	}
+
 	return logger
 }
 
@@ -29,6 +41,7 @@ AdvancedJSONFormatter is a customized Logrus JSON formatter
 */
 type AdvancedJSONFormatter struct {
 	log.JSONFormatter
+	ConsoleFlags
 	AdvancedFormatter
 }
 
@@ -38,26 +51,33 @@ func NewAdvancedJSONFormatter(flags int, callStackSkipLast int) *AdvancedJSONFor
 		JSONFormatter: log.JSONFormatter{
 			CallerPrettyfier: ModuleCallerPrettyfier,
 		},
+		ConsoleFlags: ConsoleFlags{
+			CallStackOnConsole: flags&FlagCallStackOnConsole > 0,
+			CallStackSkipLast:  callStackSkipLast,
+		},
 		AdvancedFormatter: AdvancedFormatter{
-			Flags:             flags,
-			CallStackSkipLast: callStackSkipLast,
+			Flags:              flags,
+			CallStackSkipLastX: callStackSkipLast,
 		},
 	}
 }
 
 // Format implements logrus.Formatter interface
+// calls logrus.TextFormatter.Format()
 func (f *AdvancedJSONFormatter) Format(entry *log.Entry) ([]byte, error) {
-	entry.Data = f.MergeDetailsToFields(entry)
-	callStackLines := f.GetCallStack(entry)
+	var consoleCallStackLines []string
 
-	if (f.Flags & FlagCallStackInFields) > 0 {
-		entry.Data[KeyCallStack] = callStackLines
+	if f.CallStackOnConsole {
+		consoleCallStackLines = GetCallStack(entry)
 	}
+
+	// consoleCallStackLines cannot be dig anymore
+	RenderErrorInEntry(entry)
 
 	textPart, err := f.JSONFormatter.Format(entry)
 
-	if (f.Flags & FlagCallStackOnConsole) > 0 {
-		textPart = f.AppendCallStack(textPart, callStackLines)
+	if len(consoleCallStackLines) > f.CallStackSkipLast {
+		textPart = AppendCallStack(textPart, consoleCallStackLines[:len(consoleCallStackLines)-f.CallStackSkipLast])
 	}
 
 	return textPart, err

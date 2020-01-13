@@ -2,6 +2,21 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "/home/peter/work/src/github.com/emperror_emperror"
+		},
+		{
+			"path": "/home/peter/work/src/github.com/emperror_errors"
+		},
+		{
+			"path": "/home/peter/work/konstruktor/git/sample-blog"
+		},
+		{
+			"path": "/home/peter/work/src/github.com/pgillich_logtester"
+		},
+		{
+			"path": "/home/peter/work/src/github.com/pgillich_logrus"
 		}
 	]
 }
